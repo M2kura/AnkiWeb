@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export default function Header() {
   return (
     <header className="bg-blue-600 text-white shadow-md">
@@ -9,9 +11,9 @@ export default function Header() {
 
         <nav>
           <ul className="flex gap-6">
-            <li><a href="#" className="hover:underline">Home</a></li>
-            <li><a href="#" className="hover:underline">Decks</a></li>
-            <li><a href="#" className="hover:underline">Profile</a></li>
+            <li><Link to="/" className="hover:underline">Home</Link></li>
+            <li><Link to="/" className="hover:underline">Decks</Link></li>
+            <li><Link to="/profile" className="hover:underline">Profile</Link></li>
           </ul>
         </nav>
 
