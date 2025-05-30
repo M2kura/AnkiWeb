@@ -8,4 +8,10 @@ export default defineConfig({
 		react(),
 		tailwindcss()
 	],
+	base: '/AnkiWeb/',
+	build: {
+		outDir: 'dist',
+		// Generate source maps for easier debugging
+		sourcemap: true
+	}
 })
