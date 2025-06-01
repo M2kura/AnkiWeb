@@ -1,4 +1,46 @@
+import { useRef, useState } from 'react'
+
 export default function HomePage() {
+    const fileInputRef = useRef(null)
+    const [selectedFile, setSelectedFile] = useState(null)
+    const [uploadStatus, setUploadStatus] = useState('')
+
+    const handleImportClick = () => {
+        // Trigger the hidden file input
+        fileInputRef.current?.click()
+    }
+
+    const handleFileSelect = (event) => {
+        const file = event.target.files[0]
+
+        if (!file) {
+            setSelectedFile(null)
+            setUploadStatus('')
+            return
+        }
+
+        // Basic validation: check file extension
+        if (!file.name.toLowerCase().endsWith('.apkg')) {
+            setUploadStatus('Please select a valid .apkg file')
+            setSelectedFile(null)
+            return
+        }
+
+        // Basic validation: check file size (max 50MB)
+        const maxSize = 50 * 1024 * 1024 // 50MB
+        if (file.size > maxSize) {
+            setUploadStatus('File too large. Maximum size is 50MB')
+            setSelectedFile(null)
+            return
+        }
+
+        setSelectedFile(file)
+        setUploadStatus(`Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`)
+
+        // TODO: In next step, we'll validate the file format here
+        console.log('File selected:', file)
+    }
+
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Hero Section */}
@@ -33,10 +75,44 @@ export default function HomePage() {
                             <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
                                 Create new deck
                             </button>
-                            <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
+
+                            <button 
+                                onClick={handleImportClick}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                            >
                                 Import deck
                             </button>
                         </div>
+
+                        {/* Hidden file input */}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".apkg"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                        />
+
+                        {/* Status message */}
+                        {uploadStatus && (
+                            <div className={`mt-4 p-3 rounded-lg ${
+                                selectedFile 
+                                    ? 'bg-green-100 text-green-800 border border-green-200' 
+                                    : 'bg-red-100 text-red-800 border border-red-200'
+                            }`}>
+                                {uploadStatus}
+                            </div>
+                        )}
+
+                        {/* Continue button (only show when file is selected) */}
+                        {selectedFile && (
+                            <button 
+                                onClick={() => console.log('TODO: Navigate to import page')}
+                                className="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                            >
+                                Continue with import
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
