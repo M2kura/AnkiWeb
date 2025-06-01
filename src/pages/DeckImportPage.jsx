@@ -8,13 +8,14 @@ export default function DeckImportPage() {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [parseError, setParseError] = useState(null)
+    const [mediaDetails, setMediaDetails] = useState(null)
     const [deckData, setDeckData] = useState(null)
     const [allCards, setAllCards] = useState([])
     const [deckName, setDeckName] = useState('')
     const [cardsPerPage, setCardsPerPage] = useState(10)
     const [currentPage, setCurrentPage] = useState(1)
-    const [editingCards, setEditingCards] = useState({}) // Track which cards are being edited
-    const [modifiedCards, setModifiedCards] = useState({}) // Track card modifications
+    const [editingCards, setEditingCards] = useState({})
+    const [modifiedCards, setModifiedCards] = useState({})
 
     useEffect(() => {
         loadAndParseDeck()
@@ -32,6 +33,7 @@ export default function DeckImportPage() {
         try {
             setLoading(true)
             setParseError(null)
+            setMediaDetails(null)
 
             // Convert base64 back to File object
             const base64Data = fileData.base64
@@ -59,10 +61,14 @@ export default function DeckImportPage() {
                 throw new Error(`Database loading failed: ${dbResult.error}`)
             }
 
-            // Parse the database
+            // Parse the database (now includes media validation)
             const parsedData = parseFullDeck(dbResult.database)
             if (!parsedData.success) {
-                throw new Error(`Parsing failed: ${parsedData.error}`)
+                // Handle media validation errors specifically
+                if (parsedData.mediaDetails) {
+                    setMediaDetails(parsedData.mediaDetails)
+                }
+                throw new Error(parsedData.error)
             }
 
             // Generate ALL card previews (not just 10)
@@ -70,13 +76,13 @@ export default function DeckImportPage() {
                 parsedData.notes, 
                 parsedData.cards, 
                 parsedData.noteTypes, 
-                parsedData.statistics.totalCards // Get ALL cards
+                parsedData.statistics.totalCards
             )
 
             // Set the data
             setDeckData(parsedData)
             setAllCards(allCardPreviews)
-            
+
             // Get deck name (use default deck name or filename)
             const defaultDeck = parsedData.deckInfo.defaultDeck
             const name = defaultDeck?.name || file.name.replace('.apkg', '')
@@ -112,76 +118,54 @@ export default function DeckImportPage() {
 
     const handleCardsPerPageChange = (value) => {
         setCardsPerPage(value)
-        setCurrentPage(1) // Reset to first page
+        setCurrentPage(1)
     }
 
     const handlePageChange = (page) => {
         setCurrentPage(page)
-        // Scroll to top of cards section
         document.querySelector('.cards-section')?.scrollIntoView({ behavior: 'smooth' })
     }
 
     // Helper function to convert HTML to clean text for editing
     const htmlToEditableText = (html) => {
         if (!html) return ''
-        
-        // Create a temporary div to parse HTML
+
         const tempDiv = document.createElement('div')
         tempDiv.innerHTML = html
-        
-        // Replace common HTML elements with readable text
+
         let text = html
-        
-        // Replace line breaks with actual newlines
+
         text = text.replace(/<br\s*\/?>/gi, '\n')
         text = text.replace(/<\/p>/gi, '\n')
         text = text.replace(/<p[^>]*>/gi, '')
-        
-        // Replace div closings with newlines
         text = text.replace(/<\/div>/gi, '\n')
         text = text.replace(/<div[^>]*>/gi, '')
-        
-        // Handle bold/italic - keep simple markers
         text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
         text = text.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
         text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
         text = text.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
-        
-        // Handle images and audio - convert to readable format
         text = text.replace(/<img[^>]+src="([^"]+)"[^>]*>/gi, '[Image: $1]')
         text = text.replace(/\[sound:([^\]]+)\]/gi, '[Audio: $1]')
-        
-        // Remove remaining HTML tags
         text = text.replace(/<[^>]*>/g, '')
-        
-        // Clean up extra whitespace and newlines
-        text = text.replace(/\n\s*\n/g, '\n') // Multiple newlines to single
-        text = text.replace(/^\s+|\s+$/g, '') // Trim
-        
-        // Decode HTML entities
+        text = text.replace(/\n\s*\n/g, '\n')
+        text = text.replace(/^\s+|\s+$/g, '')
+
         tempDiv.innerHTML = text
         text = tempDiv.textContent || tempDiv.innerText || text
-        
+
         return text
     }
 
-    // Helper function to convert edited text back to basic HTML
     const editableTextToHtml = (text) => {
         if (!text) return ''
-        
+
         let html = text
-        
-        // Convert simple markdown-style formatting back to HTML
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
-        
-        // Convert newlines to <br> tags
         html = html.replace(/\n/g, '<br>')
-        
-        // Handle image and audio references
         html = html.replace(/\[Image: ([^\]]+)\]/gi, '<img src="$1">')
         html = html.replace(/\[Audio: ([^\]]+)\]/gi, '[sound:$1]')
-        
+
         return html
     }
 
@@ -208,24 +192,20 @@ export default function DeckImportPage() {
         const editData = editingCards[cardId]
         if (!editData) return
 
-        // Convert edited text back to HTML
         const frontHtml = editableTextToHtml(editData.front)
         const backHtml = editableTextToHtml(editData.back)
 
-        // Update the card in allCards
         setAllCards(prev => prev.map(card => 
             card.cardId === cardId 
                 ? { ...card, front: frontHtml, back: backHtml }
                 : card
         ))
 
-        // Track that this card was modified
         setModifiedCards(prev => ({
             ...prev,
             [cardId]: true
         }))
 
-        // Stop editing
         cancelEditing(cardId)
     }
 
@@ -244,7 +224,7 @@ export default function DeckImportPage() {
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading deck...</p>
+                    <p className="text-gray-600">Loading and validating deck content...</p>
                 </div>
             </div>
         )
@@ -255,13 +235,47 @@ export default function DeckImportPage() {
             <div className="min-h-screen bg-gray-50">
                 <div className="container mx-auto px-4 py-8 max-w-4xl">
                     <div className="bg-red-100 border border-red-200 rounded-lg p-6">
-                        <h1 className="text-2xl font-bold text-red-900 mb-4">Import Error</h1>
-                        <p className="text-red-800 mb-4">{parseError}</p>
+                        <h1 className="text-2xl font-bold text-red-900 mb-4">
+                            🚫 Import Rejected - Media Content Detected
+                        </h1>
+                        <p className="text-red-800 mb-6 text-lg">{parseError}</p>
+
+                        {/* Show detailed media information if available */}
+                        {mediaDetails && mediaDetails.length > 0 && (
+                            <div className="bg-red-50 border border-red-300 rounded-lg p-4 mb-6">
+                                <h3 className="font-semibold text-red-900 mb-3">Media Found In:</h3>
+                                <div className="space-y-3 max-h-64 overflow-y-auto">
+                                    {mediaDetails.map((issue, index) => (
+                                        <div key={index} className="border-l-4 border-red-400 pl-3">
+                                            <p className="font-medium text-red-800">{issue.location}</p>
+                                            <div className="mt-1 space-y-1">
+                                                {issue.media.map((media, mediaIndex) => (
+                                                    <div key={mediaIndex} className="text-sm text-red-700 bg-red-100 rounded px-2 py-1">
+                                                        <span className="font-medium">{media.type}:</span> {media.reference}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                            <h3 className="font-semibold text-yellow-800 mb-2">💡 How to Fix This</h3>
+                            <ul className="text-yellow-700 space-y-1 text-sm">
+                                <li>• Remove all images from your cards</li>
+                                <li>• Delete any audio files (including [sound:...] references)</li>
+                                <li>• Remove embedded videos or multimedia content</li>
+                                <li>• Export a new .apkg file containing only text content</li>
+                            </ul>
+                        </div>
+
                         <button
                             onClick={handleGoBack}
-                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded"
+                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg"
                         >
-                            Go Back
+                            ← Try Another Deck
                         </button>
                     </div>
                 </div>
@@ -272,12 +286,17 @@ export default function DeckImportPage() {
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="container mx-auto px-4 py-6 max-w-6xl">
-                {/* Simple Header */}
+                {/* Header with success indicator */}
                 <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">{deckName}</h1>
-                            <p className="text-gray-600 mt-1">{allCards.length} cards</p>
+                            <div className="flex items-center gap-2 mb-2">
+                                <h1 className="text-3xl font-bold text-gray-900">{deckName}</h1>
+                                <span className="bg-green-100 text-green-700 text-sm px-3 py-1 rounded-full font-medium">
+                                    ✓ Text-Only
+                                </span>
+                            </div>
+                            <p className="text-gray-600">{allCards.length} text-only cards ready for import</p>
                         </div>
                         <div className="flex gap-3">
                             <button
@@ -301,8 +320,7 @@ export default function DeckImportPage() {
                     <div className="p-4 border-b border-gray-200">
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-gray-900">All Cards</h2>
-                            
-                            {/* Cards per page selector */}
+
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-gray-600">Show:</span>
                                 <select 
@@ -318,7 +336,6 @@ export default function DeckImportPage() {
                             </div>
                         </div>
 
-                        {/* Pagination info */}
                         <div className="mt-2 flex items-center justify-between">
                             <div className="text-sm text-gray-600">
                                 {cardsPerPage === 'all' ? (
@@ -334,13 +351,13 @@ export default function DeckImportPage() {
                             )}
                         </div>
                     </div>
-                    
+
                     <div className="divide-y divide-gray-200">
                         {displayedCards.map((card, index) => {
                             const isEditing = !!editingCards[card.cardId]
                             const editData = editingCards[card.cardId]
                             const isModified = modifiedCards[card.cardId]
-                            
+
                             return (
                                 <div key={card.cardId} className={`p-6 ${isModified ? 'bg-green-50' : ''}`}>
                                     <div className="flex items-start justify-between mb-3">
@@ -363,8 +380,7 @@ export default function DeckImportPage() {
                                             }`}>
                                                 {card.status}
                                             </span>
-                                            
-                                            {/* Edit/Save/Cancel buttons */}
+
                                             {isEditing ? (
                                                 <div className="flex gap-1">
                                                     <button
@@ -392,7 +408,6 @@ export default function DeckImportPage() {
                                     </div>
 
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                        {/* Front */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Front
@@ -406,7 +421,7 @@ export default function DeckImportPage() {
                                                         placeholder="Front side content..."
                                                     />
                                                     <div className="text-xs text-gray-500 mt-1">
-                                                        Tip: Use **bold** and *italic* for formatting. Images show as [Image: filename]
+                                                        Tip: Use **bold** and *italic* for formatting
                                                     </div>
                                                 </div>
                                             ) : (
@@ -418,7 +433,6 @@ export default function DeckImportPage() {
                                             )}
                                         </div>
 
-                                        {/* Back */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Back
@@ -432,7 +446,7 @@ export default function DeckImportPage() {
                                                         placeholder="Back side content..."
                                                     />
                                                     <div className="text-xs text-gray-500 mt-1">
-                                                        Tip: Use **bold** and *italic* for formatting. Images show as [Image: filename]
+                                                        Tip: Use **bold** and *italic* for formatting
                                                     </div>
                                                 </div>
                                             ) : (
@@ -445,7 +459,6 @@ export default function DeckImportPage() {
                                         </div>
                                     </div>
 
-                                    {/* Tags (if any) */}
                                     {card.tags && card.tags.length > 0 && (
                                         <div className="mt-3">
                                             <span className="text-xs text-gray-500">Tags: </span>
@@ -481,7 +494,6 @@ export default function DeckImportPage() {
                                 </button>
 
                                 <div className="flex items-center gap-1">
-                                    {/* Page numbers */}
                                     {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                                         let pageNum;
                                         if (totalPages <= 5) {

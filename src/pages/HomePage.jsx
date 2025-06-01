@@ -83,7 +83,7 @@ export default function HomePage() {
 
         // Show loading state
         setIsValidating(true)
-        setUploadStatus('Validating file format...')
+        setUploadStatus('Validating file format and checking for media content...')
         setSelectedFile(null)
         setValidationResult(null)
 
@@ -98,9 +98,9 @@ export default function HomePage() {
                 setSelectedFile(file)
                 setValidationResult({ ...validation, ...fileInfo })
                 setUploadStatus(
-                    `✓ Valid Anki deck: ${file.name} ` +
+                    `✓ Valid text-only Anki deck: ${file.name} ` +
                     `(${(file.size / 1024 / 1024).toFixed(2)} MB, ` +
-                    `${fileInfo.totalFiles} files, ${fileInfo.mediaFileCount} media files)`
+                    `${fileInfo.totalFiles} files, text content only)`
                 )
             } else {
                 setUploadStatus(validation.error)
@@ -140,11 +140,20 @@ export default function HomePage() {
                         </h1>
 
                         {/* Description */}
-                        <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+                        <p className="text-lg text-gray-600 mb-4 leading-relaxed">
                             AnkiWeb helps you learn efficiently using spaced repetition. 
                             Create or import custom flashcards and retain 
                             information better than ever before.
                         </p>
+
+                        {/* Important notice about media restrictions */}
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                            <h3 className="text-sm font-semibold text-yellow-800 mb-2">📝 Text-Only Decks Supported</h3>
+                            <p className="text-sm text-yellow-700">
+                                This app only supports text-only flashcards in old-anki format. Decks containing images, 
+                                audio files, or other media will be rejected during import.
+                            </p>
+                        </div>
 
                         {/* Buttons */}
                         <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -156,7 +165,7 @@ export default function HomePage() {
                                 onClick={handleImportClick}
                                 className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
                             >
-                                Import deck
+                                Import text deck
                             </button>
                         </div>
 
@@ -181,7 +190,7 @@ export default function HomePage() {
                                 {isValidating && (
                                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
                                 )}
-                                <span>{uploadStatus}</span>
+                                <span className="text-sm">{uploadStatus}</span>
                             </div>
                         )}
 

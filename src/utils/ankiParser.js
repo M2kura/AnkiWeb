@@ -1,16 +1,99 @@
 import { executeQuery } from './sqlScriptLoader'
 
 /**
- * Enhanced template processing for Anki cards
+ * Detect media references in text content
+ * @param {string} content - HTML or text content to scan
+ * @returns {Array} Array of detected media references
+ */
+function detectMediaReferences(content) {
+    if (!content) return []
+
+    const mediaFound = []
+
+    // Check for image tags
+    const imgMatches = content.match(/<img[^>]*>/gi)
+    if (imgMatches) {
+        imgMatches.forEach(match => {
+            const srcMatch = match.match(/src=["']([^"']+)["']/i)
+            if (srcMatch) {
+                mediaFound.push({
+                    type: 'image',
+                    reference: srcMatch[1],
+                    fullTag: match
+                })
+            }
+        })
+    }
+
+    // Check for audio references [sound:filename]
+    const audioMatches = content.match(/\[sound:[^\]]+\]/gi)
+    if (audioMatches) {
+        audioMatches.forEach(match => {
+            const filename = match.replace(/\[sound:|\]/g, '')
+            mediaFound.push({
+                type: 'audio',
+                reference: filename,
+                fullTag: match
+            })
+        })
+    }
+
+    // Check for video tags
+    const videoMatches = content.match(/<video[^>]*>.*?<\/video>/gis)
+    if (videoMatches) {
+        videoMatches.forEach(match => {
+            mediaFound.push({
+                type: 'video',
+                reference: 'embedded video',
+                fullTag: match
+            })
+        })
+    }
+
+    // Check for audio tags
+    const audioTagMatches = content.match(/<audio[^>]*>.*?<\/audio>/gis)
+    if (audioTagMatches) {
+        audioTagMatches.forEach(match => {
+            mediaFound.push({
+                type: 'audio_tag',
+                reference: 'embedded audio',
+                fullTag: match
+            })
+        })
+    }
+
+    // Check for object/embed tags (could be media)
+    const objectMatches = content.match(/<(object|embed)[^>]*>.*?<\/\1>/gis)
+    if (objectMatches) {
+        objectMatches.forEach(match => {
+            mediaFound.push({
+                type: 'embedded_object',
+                reference: 'embedded media object',
+                fullTag: match
+            })
+        })
+    }
+
+    return mediaFound
+}
+
+/**
+ * Enhanced template processing for Anki cards with media detection
  */
 function processAnkiTemplate(template, fields, fieldNames, frontContent = '') {
-    if (!template) return ''
+    if (!template) return { content: '', mediaFound: [] }
 
     let processed = template
+    let allMediaFound = []
 
-    // Step 1: Replace field placeholders
+    // Step 1: Replace field placeholders and collect media from fields
     fieldNames.forEach((fieldName, index) => {
         const fieldValue = fields[index] || ''
+
+        // Check for media in field content
+        const fieldMedia = detectMediaReferences(fieldValue)
+        allMediaFound.push(...fieldMedia)
+
         const placeholder = `{{${fieldName}}}`
         const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         const regex = new RegExp(escapedPlaceholder, 'gi')
@@ -22,36 +105,26 @@ function processAnkiTemplate(template, fields, fieldNames, frontContent = '') {
         processed = processed.replace(/\{\{FrontSide\}\}/gi, frontContent)
     }
 
-    // Step 3: Handle cloze deletions
+    // Step 3: Check for media in the processed template
+    const templateMedia = detectMediaReferences(processed)
+    allMediaFound.push(...templateMedia)
+
+    // Step 4: Handle cloze deletions (text only)
     processed = processed.replace(/\{\{c(\d+)::(.*?)(?:::(.*?))?\}\}/g, (match, num, text, hint) => {
         return `<span style="color: blue; font-weight: bold;">[${text}]</span>`
     })
 
-    // Step 4: Clean up remaining unmatched placeholders
+    // Step 5: Clean up remaining unmatched placeholders
     processed = processed.replace(/\{\{[^}]+\}\}/g, '<span style="color: red; font-size: 0.8em;">[Missing Field]</span>')
 
-    // Step 5: Handle media references
-    processed = processed.replace(/<img[^>]+src="([^"]+)"[^>]*>/gi, (match, src) => {
-        const filename = src.split('/').pop()
-        return `<div style="border: 2px dashed #94a3b8; padding: 8px; text-align: center; color: #64748b; background: #f8fafc; border-radius: 4px; font-size: 0.85em;">
-            📷 Image: <strong>${filename}</strong><br>
-            <small>(Media files not loaded in preview)</small>
-        </div>`
-    })
-
-    // Handle audio files
-    processed = processed.replace(/\[sound:([^\]]+)\]/gi, (match, filename) => {
-        return `<div style="border: 2px dashed #94a3b8; padding: 8px; text-align: center; color: #64748b; background: #f8fafc; border-radius: 4px; font-size: 0.85em;">
-            🔊 Audio: <strong>${filename}</strong><br>
-            <small>(Media files not loaded in preview)</small>
-        </div>`
-    })
-
-    return processed
+    return {
+        content: processed,
+        mediaFound: allMediaFound
+    }
 }
 
 /**
- * Parse complete deck information from Anki database
+ * Parse complete deck information from Anki database with media validation
  */
 export function parseFullDeck(db) {
     try {
@@ -61,6 +134,17 @@ export function parseFullDeck(db) {
         const cards = parseCards(db)
         const statistics = getDeckStatistics(db)
 
+        // NEW: Check for media content in note types and cards
+        const mediaValidation = validateDeckForMedia(noteTypes, notes, cards)
+
+        if (!mediaValidation.isValid) {
+            return {
+                success: false,
+                error: mediaValidation.error,
+                mediaDetails: mediaValidation.details
+            }
+        }
+
         return {
             success: true,
             deckInfo,
@@ -68,7 +152,8 @@ export function parseFullDeck(db) {
             notes,
             cards,
             statistics,
-            relationships: buildRelationships(notes, cards)
+            relationships: buildRelationships(notes, cards),
+            mediaValidation: mediaValidation
         }
     } catch (error) {
         console.error('Error parsing deck:', error)
@@ -76,6 +161,80 @@ export function parseFullDeck(db) {
             success: false,
             error: error.message
         }
+    }
+}
+
+/**
+ * Validate deck content for media references
+ * @param {Object} noteTypes - Parsed note types
+ * @param {Array} notes - Parsed notes
+ * @param {Array} cards - Parsed cards  
+ * @returns {Object} Validation result
+ */
+function validateDeckForMedia(noteTypes, notes, cards) {
+    const mediaIssues = []
+
+    // Check note type templates for media
+    Object.values(noteTypes.models).forEach(model => {
+        model.templates.forEach(template => {
+            // Check front template
+            const frontMedia = detectMediaReferences(template.front)
+            if (frontMedia.length > 0) {
+                mediaIssues.push({
+                    location: `Note type "${model.name}" - Template "${template.name}" (Front)`,
+                    media: frontMedia
+                })
+            }
+
+            // Check back template  
+            const backMedia = detectMediaReferences(template.back)
+            if (backMedia.length > 0) {
+                mediaIssues.push({
+                    location: `Note type "${model.name}" - Template "${template.name}" (Back)`,
+                    media: backMedia
+                })
+            }
+        })
+
+        // Check CSS for media references
+        const cssMedia = detectMediaReferences(model.css)
+        if (cssMedia.length > 0) {
+            mediaIssues.push({
+                location: `Note type "${model.name}" - CSS`,
+                media: cssMedia
+            })
+        }
+    })
+
+    // Check note field content for media
+    notes.forEach((note, noteIndex) => {
+        note.fields.forEach((field, fieldIndex) => {
+            const fieldMedia = detectMediaReferences(field)
+            if (fieldMedia.length > 0) {
+                const model = Object.values(noteTypes.models).find(m => m.id === note.modelId)
+                const fieldName = model?.fields?.[fieldIndex] || `Field ${fieldIndex + 1}`
+
+                mediaIssues.push({
+                    location: `Note ${noteIndex + 1} - ${fieldName}`,
+                    media: fieldMedia
+                })
+            }
+        })
+    })
+
+    if (mediaIssues.length > 0) {
+        const totalMediaReferences = mediaIssues.reduce((sum, issue) => sum + issue.media.length, 0)
+
+        return {
+            isValid: false,
+            error: `Deck contains ${totalMediaReferences} media reference(s) in ${mediaIssues.length} location(s). Only text-only content is supported.`,
+            details: mediaIssues
+        }
+    }
+
+    return {
+        isValid: true,
+        details: []
     }
 }
 
@@ -359,7 +518,7 @@ function getCardStatus(queue) {
 }
 
 /**
- * Get enhanced preview of cards with front/back content
+ * Get enhanced preview of cards with front/back content (media-free version)
  */
 export function getCardPreviews(notes, cards, noteTypes, limit = 10) {
     try {
@@ -384,32 +543,33 @@ export function getCardPreviews(notes, cards, noteTypes, limit = 10) {
             const template = noteType.templates[card.templateIndex]
             if (!template) continue
 
-            // Process front side first
-            const frontProcessed = processAnkiTemplate(
+            // Process front side first (returns content and media found)
+            const frontResult = processAnkiTemplate(
                 template.front, 
                 note.fields, 
                 noteType.fields
             )
 
             // Process back side with front content available
-            const backProcessed = processAnkiTemplate(
+            const backResult = processAnkiTemplate(
                 template.back, 
                 note.fields, 
                 noteType.fields, 
-                frontProcessed
+                frontResult.content
             )
 
             previews.push({
                 cardId: card.id,
                 noteId: note.id,
-                front: frontProcessed,
-                back: backProcessed,
+                front: frontResult.content,
+                back: backResult.content,
                 status: card.status,
                 noteType: noteType.name,
                 templateName: template.name,
                 fields: note.fields,
                 fieldNames: noteType.fields,
-                tags: note.tags
+                tags: note.tags,
+                mediaFound: [...frontResult.mediaFound, ...backResult.mediaFound]
             })
         }
 
