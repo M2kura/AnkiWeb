@@ -1,21 +1,25 @@
 import { useRef, useState } from 'react'
+import { validateApkgFile, getApkgInfo } from '../utils/apkgValidator'
 
 export default function HomePage() {
     const fileInputRef = useRef(null)
     const [selectedFile, setSelectedFile] = useState(null)
     const [uploadStatus, setUploadStatus] = useState('')
+    const [isValidating, setIsValidating] = useState(false)
+    const [validationResult, setValidationResult] = useState(null)
 
     const handleImportClick = () => {
         // Trigger the hidden file input
         fileInputRef.current?.click()
     }
 
-    const handleFileSelect = (event) => {
+    const handleFileSelect = async (event) => {
         const file = event.target.files[0]
 
         if (!file) {
             setSelectedFile(null)
             setUploadStatus('')
+            setValidationResult(null)
             return
         }
 
@@ -23,6 +27,7 @@ export default function HomePage() {
         if (!file.name.toLowerCase().endsWith('.apkg')) {
             setUploadStatus('Please select a valid .apkg file')
             setSelectedFile(null)
+            setValidationResult(null)
             return
         }
 
@@ -31,14 +36,44 @@ export default function HomePage() {
         if (file.size > maxSize) {
             setUploadStatus('File too large. Maximum size is 50MB')
             setSelectedFile(null)
+            setValidationResult(null)
             return
         }
 
-        setSelectedFile(file)
-        setUploadStatus(`Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`)
+        // Show loading state
+        setIsValidating(true)
+        setUploadStatus('Validating file format...')
+        setSelectedFile(null)
+        setValidationResult(null)
 
-        // TODO: In next step, we'll validate the file format here
-        console.log('File selected:', file)
+        try {
+            // Validate the .apkg file format
+            const validation = await validateApkgFile(file)
+
+            if (validation.isValid) {
+                // Get additional file info
+                const fileInfo = await getApkgInfo(validation.zipContent)
+
+                setSelectedFile(file)
+                setValidationResult({ ...validation, ...fileInfo })
+                setUploadStatus(
+                    `✓ Valid Anki deck: ${file.name} ` +
+                    `(${(file.size / 1024 / 1024).toFixed(2)} MB, ` +
+                    `${fileInfo.totalFiles} files, ${fileInfo.mediaFileCount} media files)`
+                )
+            } else {
+                setUploadStatus(validation.error)
+                setSelectedFile(null)
+                setValidationResult(null)
+            }
+        } catch (error) {
+            console.error('Validation error:', error)
+            setUploadStatus('Error validating file. Please try again.')
+            setSelectedFile(null)
+            setValidationResult(null)
+        } finally {
+            setIsValidating(false)
+        }
     }
 
     return (
@@ -95,19 +130,24 @@ export default function HomePage() {
 
                         {/* Status message */}
                         {uploadStatus && (
-                            <div className={`mt-4 p-3 rounded-lg ${
-                                selectedFile 
-                                    ? 'bg-green-100 text-green-800 border border-green-200' 
-                                    : 'bg-red-100 text-red-800 border border-red-200'
+                            <div className={`mt-4 p-3 rounded-lg flex items-center gap-2 ${
+                                isValidating 
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                    : selectedFile 
+                                        ? 'bg-green-100 text-green-800 border border-green-200' 
+                                        : 'bg-red-100 text-red-800 border border-red-200'
                             }`}>
-                                {uploadStatus}
+                                {isValidating && (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                                )}
+                                <span>{uploadStatus}</span>
                             </div>
                         )}
 
-                        {/* Continue button (only show when file is selected) */}
-                        {selectedFile && (
+                        {/* Continue button (only show when file is selected and validated) */}
+                        {selectedFile && !isValidating && (
                             <button 
-                                onClick={() => console.log('TODO: Navigate to import page')}
+                                onClick={() => console.log('TODO: Navigate to import page', validationResult)}
                                 className="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
                             >
                                 Continue with import
