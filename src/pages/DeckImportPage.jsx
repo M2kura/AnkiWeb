@@ -103,12 +103,53 @@ export default function DeckImportPage() {
         navigate('/')
     }
 
-    const handleImport = () => {
-        console.log('Importing deck:', deckName)
-        console.log('Cards to import:', allCards.length)
-        // TODO: Implement actual import logic
-        alert(`Import functionality will be implemented next!\nDeck: ${deckName}\nCards: ${allCards.length}`)
-    }
+	const handleImport = () => {
+		try {
+			// Generate a unique deck ID
+			const deckId = `deck_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+			
+			// Prepare deck data for storage
+			const deckDataToStore = {
+				id: deckId,
+				name: deckName,
+				cards: allCards.map(card => ({
+					id: card.cardId,
+					front: card.front,
+					back: card.back,
+					status: card.status,
+					tags: card.tags || [],
+					// Include any modifications made
+					modified: modifiedCards[card.cardId] || false
+				})),
+				importedAt: new Date().toISOString(),
+				totalCards: allCards.length,
+				modifiedCards: Object.keys(modifiedCards).length
+			}
+			
+			// Store deck data in localStorage
+			localStorage.setItem(`ankiweb_deck_${deckId}`, JSON.stringify(deckDataToStore))
+			
+			// Also update the decks list
+			const existingDecks = JSON.parse(localStorage.getItem('ankiweb_decks') || '[]')
+			const deckSummary = {
+				id: deckId,
+				name: deckName,
+				cardCount: allCards.length,
+				importedAt: deckDataToStore.importedAt
+			}
+			existingDecks.push(deckSummary)
+			localStorage.setItem('ankiweb_decks', JSON.stringify(existingDecks))
+			
+			console.log('Deck stored successfully:', deckId)
+			
+			// Navigate to practice page
+			navigate(`/practice/${deckId}`)
+			
+		} catch (error) {
+			console.error('Error importing deck:', error)
+			alert('Error importing deck. Please try again.')
+		}
+	}
 
     // Calculate pagination
     const totalPages = cardsPerPage === 'all' ? 1 : Math.ceil(allCards.length / Number(cardsPerPage))
