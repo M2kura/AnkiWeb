@@ -1,8 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { validateApkgFile, getApkgInfo } from '../utils/apkgValidator'
-import SqlJsTest from '../components/SqlJsTest'
-import DatabaseTest from '../components/DatabaseTest'
 
 export default function HomePage() {
     const navigate = useNavigate()
@@ -209,8 +207,6 @@ export default function HomePage() {
                     </div>
                 </div>
             </div>
-			<SqlJsTest />
-			<DatabaseTest />
         </div>
     )
 }
