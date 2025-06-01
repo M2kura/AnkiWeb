@@ -26,7 +26,7 @@ export default function HomePage() {
                     const base64Data = fileReader.result
 
                     // Navigate to import page with deck data
-                    navigate('/import', {
+                    navigate('/deck-editor', {
                         state: {
                             fileData: {
                                 name: selectedFile.name,
@@ -144,7 +144,10 @@ export default function HomePage() {
 
                         {/* Buttons */}
                         <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                            <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
+                            <button 
+                                onClick={() => navigate('/deck-editor')}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                            >
                                 Create new deck
                             </button>
 
