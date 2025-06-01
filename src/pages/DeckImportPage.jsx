@@ -6,12 +6,15 @@ import { parseFullDeck, getCardPreviews } from '../utils/ankiParser'
 export default function DeckImportPage() {
     const location = useLocation()
     const navigate = useNavigate()
-    const [fileData, setFileData] = useState(null)
     const [loading, setLoading] = useState(true)
     const [parseError, setParseError] = useState(null)
     const [deckData, setDeckData] = useState(null)
-    const [cardPreviews, setCardPreviews] = useState([])
-    const [selectedDeck, setSelectedDeck] = useState(null)
+    const [allCards, setAllCards] = useState([])
+    const [deckName, setDeckName] = useState('')
+    const [cardsPerPage, setCardsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [editingCards, setEditingCards] = useState({}) // Track which cards are being edited
+    const [modifiedCards, setModifiedCards] = useState({}) // Track card modifications
 
     useEffect(() => {
         loadAndParseDeck()
@@ -62,23 +65,22 @@ export default function DeckImportPage() {
                 throw new Error(`Parsing failed: ${parsedData.error}`)
             }
 
-            // Generate card previews
-            const previews = getCardPreviews(
+            // Generate ALL card previews (not just 10)
+            const allCardPreviews = getCardPreviews(
                 parsedData.notes, 
                 parsedData.cards, 
                 parsedData.noteTypes, 
-                10
+                parsedData.statistics.totalCards // Get ALL cards
             )
 
             // Set the data
-            setFileData({ file, validationResult: validationInfo })
             setDeckData(parsedData)
-            setCardPreviews(previews)
-
-            // Auto-select the default deck
-            if (parsedData.deckInfo.defaultDeck) {
-                setSelectedDeck(parsedData.deckInfo.defaultDeck)
-            }
+            setAllCards(allCardPreviews)
+            
+            // Get deck name (use default deck name or filename)
+            const defaultDeck = parsedData.deckInfo.defaultDeck
+            const name = defaultDeck?.name || file.name.replace('.apkg', '')
+            setDeckName(name)
 
             // Clean up database connection
             dbResult.database.close()
@@ -95,11 +97,146 @@ export default function DeckImportPage() {
         navigate('/')
     }
 
-    const handleConfirmImport = () => {
-        console.log('Import confirmed for:', fileData.file.name)
-        console.log('Selected deck:', selectedDeck)
-        console.log('Deck data:', deckData)
-        alert('Import functionality will be implemented in the next step!')
+    const handleImport = () => {
+        console.log('Importing deck:', deckName)
+        console.log('Cards to import:', allCards.length)
+        // TODO: Implement actual import logic
+        alert(`Import functionality will be implemented next!\nDeck: ${deckName}\nCards: ${allCards.length}`)
+    }
+
+    // Calculate pagination
+    const totalPages = cardsPerPage === 'all' ? 1 : Math.ceil(allCards.length / Number(cardsPerPage))
+    const startIndex = cardsPerPage === 'all' ? 0 : (currentPage - 1) * Number(cardsPerPage)
+    const endIndex = cardsPerPage === 'all' ? allCards.length : startIndex + Number(cardsPerPage)
+    const displayedCards = allCards.slice(startIndex, endIndex)
+
+    const handleCardsPerPageChange = (value) => {
+        setCardsPerPage(value)
+        setCurrentPage(1) // Reset to first page
+    }
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page)
+        // Scroll to top of cards section
+        document.querySelector('.cards-section')?.scrollIntoView({ behavior: 'smooth' })
+    }
+
+    // Helper function to convert HTML to clean text for editing
+    const htmlToEditableText = (html) => {
+        if (!html) return ''
+        
+        // Create a temporary div to parse HTML
+        const tempDiv = document.createElement('div')
+        tempDiv.innerHTML = html
+        
+        // Replace common HTML elements with readable text
+        let text = html
+        
+        // Replace line breaks with actual newlines
+        text = text.replace(/<br\s*\/?>/gi, '\n')
+        text = text.replace(/<\/p>/gi, '\n')
+        text = text.replace(/<p[^>]*>/gi, '')
+        
+        // Replace div closings with newlines
+        text = text.replace(/<\/div>/gi, '\n')
+        text = text.replace(/<div[^>]*>/gi, '')
+        
+        // Handle bold/italic - keep simple markers
+        text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+        text = text.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
+        text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
+        text = text.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
+        
+        // Handle images and audio - convert to readable format
+        text = text.replace(/<img[^>]+src="([^"]+)"[^>]*>/gi, '[Image: $1]')
+        text = text.replace(/\[sound:([^\]]+)\]/gi, '[Audio: $1]')
+        
+        // Remove remaining HTML tags
+        text = text.replace(/<[^>]*>/g, '')
+        
+        // Clean up extra whitespace and newlines
+        text = text.replace(/\n\s*\n/g, '\n') // Multiple newlines to single
+        text = text.replace(/^\s+|\s+$/g, '') // Trim
+        
+        // Decode HTML entities
+        tempDiv.innerHTML = text
+        text = tempDiv.textContent || tempDiv.innerText || text
+        
+        return text
+    }
+
+    // Helper function to convert edited text back to basic HTML
+    const editableTextToHtml = (text) => {
+        if (!text) return ''
+        
+        let html = text
+        
+        // Convert simple markdown-style formatting back to HTML
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
+        
+        // Convert newlines to <br> tags
+        html = html.replace(/\n/g, '<br>')
+        
+        // Handle image and audio references
+        html = html.replace(/\[Image: ([^\]]+)\]/gi, '<img src="$1">')
+        html = html.replace(/\[Audio: ([^\]]+)\]/gi, '[sound:$1]')
+        
+        return html
+    }
+
+    const startEditing = (cardId) => {
+        const card = allCards.find(c => c.cardId === cardId)
+        setEditingCards(prev => ({
+            ...prev,
+            [cardId]: {
+                front: htmlToEditableText(card.front),
+                back: htmlToEditableText(card.back)
+            }
+        }))
+    }
+
+    const cancelEditing = (cardId) => {
+        setEditingCards(prev => {
+            const updated = { ...prev }
+            delete updated[cardId]
+            return updated
+        })
+    }
+
+    const saveCardChanges = (cardId) => {
+        const editData = editingCards[cardId]
+        if (!editData) return
+
+        // Convert edited text back to HTML
+        const frontHtml = editableTextToHtml(editData.front)
+        const backHtml = editableTextToHtml(editData.back)
+
+        // Update the card in allCards
+        setAllCards(prev => prev.map(card => 
+            card.cardId === cardId 
+                ? { ...card, front: frontHtml, back: backHtml }
+                : card
+        ))
+
+        // Track that this card was modified
+        setModifiedCards(prev => ({
+            ...prev,
+            [cardId]: true
+        }))
+
+        // Stop editing
+        cancelEditing(cardId)
+    }
+
+    const updateCardField = (cardId, field, value) => {
+        setEditingCards(prev => ({
+            ...prev,
+            [cardId]: {
+                ...prev[cardId],
+                [field]: value
+            }
+        }))
     }
 
     if (loading) {
@@ -107,7 +244,7 @@ export default function DeckImportPage() {
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading and parsing deck...</p>
+                    <p className="text-gray-600">Loading deck...</p>
                 </div>
             </div>
         )
@@ -132,248 +269,274 @@ export default function DeckImportPage() {
         )
     }
 
-    if (!fileData || !deckData) {
-        return null
-    }
-
-    const { file, validationResult } = fileData
-
     return (
         <div className="min-h-screen bg-gray-50">
-            <div className="container mx-auto px-4 py-8 max-w-4xl">
-                {/* Header */}
-                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h1 className="text-3xl font-bold text-gray-900">Import Anki Deck</h1>
-                        <button
-                            onClick={handleGoBack}
-                            className="text-gray-600 hover:text-gray-800 font-medium"
-                        >
-                            ← Back to Home
-                        </button>
-                    </div>
-
-                    {/* File Information */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h2 className="text-lg font-semibold text-blue-900 mb-2">File Information</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <span className="font-medium text-gray-700">Filename:</span>
-                                <span className="ml-2 text-gray-900">{file.name}</span>
-                            </div>
-                            <div>
-                                <span className="font-medium text-gray-700">File Size:</span>
-                                <span className="ml-2 text-gray-900">
-                                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                                </span>
-                            </div>
-                            <div>
-                                <span className="font-medium text-gray-700">Total Cards:</span>
-                                <span className="ml-2 text-gray-900">{deckData.statistics.totalCards}</span>
-                            </div>
-                            <div>
-                                <span className="font-medium text-gray-700">Total Notes:</span>
-                                <span className="ml-2 text-gray-900">{deckData.statistics.totalNotes}</span>
-                            </div>
-                            <div>
-                                <span className="font-medium text-gray-700">Media Files:</span>
-                                <span className="ml-2 text-gray-900">{validationResult.mediaFileCount || 0}</span>
-                            </div>
-                            <div>
-                                <span className="font-medium text-gray-700">Note Types:</span>
-                                <span className="ml-2 text-gray-900">{deckData.noteTypes.modelCount}</span>
-                            </div>
+            <div className="container mx-auto px-4 py-6 max-w-6xl">
+                {/* Simple Header */}
+                <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900">{deckName}</h1>
+                            <p className="text-gray-600 mt-1">{allCards.length} cards</p>
                         </div>
-                    </div>
-                </div>
-
-                {/* Deck Information */}
-                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-4">Deck Information</h2>
-
-                    {deckData.deckInfo.deckCount > 1 ? (
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Select Deck to Import:
-                            </label>
-                            <select 
-                                value={selectedDeck?.id || ''} 
-                                onChange={(e) => {
-                                    const deck = Object.values(deckData.deckInfo.decks).find(d => d.id == e.target.value)
-                                    setSelectedDeck(deck)
-                                }}
-                                className="border border-gray-300 rounded-md px-3 py-2 bg-white"
-                            >
-                                {Object.values(deckData.deckInfo.decks).map(deck => (
-                                    <option key={deck.id} value={deck.id}>
-                                        {deck.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    ) : null}
-
-                    {selectedDeck && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <h3 className="text-lg font-semibold text-green-900 mb-2">{selectedDeck.name}</h3>
-                            {selectedDeck.description && (
-                                <p className="text-green-800 mb-2">{selectedDeck.description}</p>
-                            )}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                <div>
-                                    <span className="font-medium text-gray-700">Deck ID:</span>
-                                    <span className="ml-2 text-gray-900">{selectedDeck.id}</span>
-                                </div>
-                                {selectedDeck.created && (
-                                    <div>
-                                        <span className="font-medium text-gray-700">Created:</span>
-                                        <span className="ml-2 text-gray-900">
-                                            {selectedDeck.created.toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                )}
-                                <div>
-                                    <span className="font-medium text-gray-700">Config:</span>
-                                    <span className="ml-2 text-gray-900">{selectedDeck.config}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Statistics */}
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Cards by Status */}
-                        {deckData.statistics.cardsByStatus.length > 0 && (
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <h4 className="font-medium text-gray-900 mb-2">Cards by Status</h4>
-                                <div className="space-y-1">
-                                    {deckData.statistics.cardsByStatus.map((item, index) => (
-                                        <div key={index} className="flex justify-between text-sm">
-                                            <span className="text-gray-700">{item.status}:</span>
-                                            <span className="font-medium">{item.count}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Note Types */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                            <h4 className="font-medium text-gray-900 mb-2">Note Types</h4>
-                            <div className="space-y-1">
-                                {Object.values(deckData.noteTypes.models).map(model => (
-                                    <div key={model.id} className="text-sm">
-                                        <div className="font-medium text-gray-800">{model.name}</div>
-                                        <div className="text-gray-600 text-xs">
-                                            {model.fields.length} fields, {model.cardCount} card types
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Card Previews */}
-                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-4">Card Previews</h2>
-
-                    {cardPreviews.length > 0 ? (
-                        <div className="space-y-4">
-                            {cardPreviews.slice(0, 5).map((preview, index) => (
-                                <div key={preview.cardId} className="border border-gray-200 rounded-lg p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="text-sm font-medium text-gray-600">
-                                            Card {index + 1} - {preview.noteType}
-                                        </span>
-                                        <span className={`text-xs px-2 py-1 rounded ${
-                                            preview.status === 'New' ? 'bg-blue-100 text-blue-800' :
-                                            preview.status === 'Learning' ? 'bg-yellow-100 text-yellow-800' :
-                                            preview.status === 'Review' ? 'bg-green-100 text-green-800' :
-                                            'bg-gray-100 text-gray-800'
-                                        }`}>
-                                            {preview.status}
-                                        </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <h4 className="text-sm font-medium text-gray-700 mb-1">Front:</h4>
-                                            <div 
-                                                className="text-sm bg-gray-50 p-2 rounded border min-h-[60px]"
-                                                dangerouslySetInnerHTML={{ __html: preview.front }}
-                                            />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-medium text-gray-700 mb-1">Back:</h4>
-                                            <div 
-                                                className="text-sm bg-gray-50 p-2 rounded border min-h-[60px]"
-                                                dangerouslySetInnerHTML={{ __html: preview.back }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {cardPreviews.length > 5 && (
-                                <div className="text-center text-gray-600 text-sm">
-                                    ... and {cardPreviews.length - 5} more cards
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                            <p className="text-yellow-800">No card previews available</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Import Options */}
-                <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-4">Import Options</h2>
-
-                    <div className="space-y-4">
-                        {/* Import Settings */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                            <h3 className="font-medium text-gray-900 mb-2">Import Settings</h3>
-                            <div className="space-y-2">
-                                <label className="flex items-center">
-                                    <input type="checkbox" className="rounded" defaultChecked />
-                                    <span className="ml-2 text-sm text-gray-700">
-                                        Import all cards ({deckData.statistics.totalCards} cards)
-                                    </span>
-                                </label>
-                                <label className="flex items-center">
-                                    <input type="checkbox" className="rounded" defaultChecked />
-                                    <span className="ml-2 text-sm text-gray-700">
-                                        Import media files ({validationResult.mediaFileCount || 0} files)
-                                    </span>
-                                </label>
-                                <label className="flex items-center">
-                                    <input type="checkbox" className="rounded" />
-                                    <span className="ml-2 text-sm text-gray-700">
-                                        Overwrite existing cards with same ID
-                                    </span>
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-4 pt-4">
-                            <button
-                                onClick={handleConfirmImport}
-                                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
-                            >
-                                Import {selectedDeck?.name || 'Deck'}
-                            </button>
+                        <div className="flex gap-3">
                             <button
                                 onClick={handleGoBack}
-                                className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
                             >
-                                Cancel
+                                ← Back
+                            </button>
+                            <button
+                                onClick={handleImport}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg"
+                            >
+                                Import Deck
                             </button>
                         </div>
                     </div>
+                </div>
+
+                {/* Cards List */}
+                <div className="bg-white rounded-lg shadow-sm cards-section">
+                    <div className="p-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-gray-900">All Cards</h2>
+                            
+                            {/* Cards per page selector */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-600">Show:</span>
+                                <select 
+                                    value={cardsPerPage}
+                                    onChange={(e) => handleCardsPerPageChange(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                >
+                                    <option value={10}>10 per page</option>
+                                    <option value={25}>25 per page</option>
+                                    <option value={50}>50 per page</option>
+                                    <option value="all">All cards</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Pagination info */}
+                        <div className="mt-2 flex items-center justify-between">
+                            <div className="text-sm text-gray-600">
+                                {cardsPerPage === 'all' ? (
+                                    `Showing all ${allCards.length} cards`
+                                ) : (
+                                    `Showing ${startIndex + 1}-${Math.min(endIndex, allCards.length)} of ${allCards.length} cards`
+                                )}
+                            </div>
+                            {Object.keys(modifiedCards).length > 0 && (
+                                <div className="text-sm text-green-600 font-medium">
+                                    {Object.keys(modifiedCards).length} cards modified
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="divide-y divide-gray-200">
+                        {displayedCards.map((card, index) => {
+                            const isEditing = !!editingCards[card.cardId]
+                            const editData = editingCards[card.cardId]
+                            const isModified = modifiedCards[card.cardId]
+                            
+                            return (
+                                <div key={card.cardId} className={`p-6 ${isModified ? 'bg-green-50' : ''}`}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-gray-500">
+                                                Card {startIndex + index + 1}
+                                            </span>
+                                            {isModified && (
+                                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                                    Modified
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs px-2 py-1 rounded-full ${
+                                                card.status === 'New' ? 'bg-blue-100 text-blue-700' :
+                                                card.status === 'Learning' ? 'bg-yellow-100 text-yellow-700' :
+                                                card.status === 'Review' ? 'bg-green-100 text-green-700' :
+                                                'bg-gray-100 text-gray-700'
+                                            }`}>
+                                                {card.status}
+                                            </span>
+                                            
+                                            {/* Edit/Save/Cancel buttons */}
+                                            {isEditing ? (
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={() => saveCardChanges(card.cardId)}
+                                                        className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        onClick={() => cancelEditing(card.cardId)}
+                                                        className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => startEditing(card.cardId)}
+                                                    className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        {/* Front */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Front
+                                            </label>
+                                            {isEditing ? (
+                                                <div>
+                                                    <textarea
+                                                        value={editData.front}
+                                                        onChange={(e) => updateCardField(card.cardId, 'front', e.target.value)}
+                                                        className="w-full min-h-[80px] p-3 border rounded-lg text-sm resize-y"
+                                                        placeholder="Front side content..."
+                                                    />
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        Tip: Use **bold** and *italic* for formatting. Images show as [Image: filename]
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div 
+                                                    className="min-h-[80px] p-3 bg-gray-50 border rounded-lg text-sm cursor-pointer hover:bg-gray-100"
+                                                    dangerouslySetInnerHTML={{ __html: card.front }}
+                                                    onClick={() => startEditing(card.cardId)}
+                                                />
+                                            )}
+                                        </div>
+
+                                        {/* Back */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Back
+                                            </label>
+                                            {isEditing ? (
+                                                <div>
+                                                    <textarea
+                                                        value={editData.back}
+                                                        onChange={(e) => updateCardField(card.cardId, 'back', e.target.value)}
+                                                        className="w-full min-h-[80px] p-3 border rounded-lg text-sm resize-y"
+                                                        placeholder="Back side content..."
+                                                    />
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        Tip: Use **bold** and *italic* for formatting. Images show as [Image: filename]
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div 
+                                                    className="min-h-[80px] p-3 bg-gray-50 border rounded-lg text-sm cursor-pointer hover:bg-gray-100"
+                                                    dangerouslySetInnerHTML={{ __html: card.back }}
+                                                    onClick={() => startEditing(card.cardId)}
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Tags (if any) */}
+                                    {card.tags && card.tags.length > 0 && (
+                                        <div className="mt-3">
+                                            <span className="text-xs text-gray-500">Tags: </span>
+                                            {card.tags.map((tag, tagIndex) => (
+                                                <span 
+                                                    key={tagIndex}
+                                                    className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded mr-1"
+                                                >
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {cardsPerPage !== 'all' && totalPages > 1 && (
+                        <div className="p-4 border-t border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className={`px-3 py-1 rounded text-sm ${
+                                        currentPage === 1 
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    }`}
+                                >
+                                    ← Previous
+                                </button>
+
+                                <div className="flex items-center gap-1">
+                                    {/* Page numbers */}
+                                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                                        let pageNum;
+                                        if (totalPages <= 5) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage <= 3) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage > totalPages - 3) {
+                                            pageNum = totalPages - 4 + i;
+                                        } else {
+                                            pageNum = currentPage - 2 + i;
+                                        }
+
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => handlePageChange(pageNum)}
+                                                className={`w-8 h-8 rounded text-sm ${
+                                                    pageNum === currentPage
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className={`px-3 py-1 rounded text-sm ${
+                                        currentPage === totalPages
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    }`}
+                                >
+                                    Next →
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Bottom Actions */}
+                <div className="mt-6 text-center">
+                    <button
+                        onClick={handleImport}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg text-lg"
+                    >
+                        Import All {allCards.length} Cards
+                        {Object.keys(modifiedCards).length > 0 && 
+                            ` (${Object.keys(modifiedCards).length} modified)`
+                        }
+                    </button>
                 </div>
             </div>
         </div>
