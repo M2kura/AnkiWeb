@@ -1,16 +1,57 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { validateApkgFile, getApkgInfo } from '../utils/apkgValidator'
 
 export default function HomePage() {
+    const navigate = useNavigate()
     const fileInputRef = useRef(null)
     const [selectedFile, setSelectedFile] = useState(null)
     const [uploadStatus, setUploadStatus] = useState('')
     const [isValidating, setIsValidating] = useState(false)
     const [validationResult, setValidationResult] = useState(null)
+    const [isNavigating, setIsNavigating] = useState(false)
 
     const handleImportClick = () => {
         // Trigger the hidden file input
         fileInputRef.current?.click()
+    }
+
+    const handleContinueImport = async () => {
+        if (selectedFile && validationResult) {
+            try {
+                setIsNavigating(true)
+
+                // Convert file to base64 for passing through navigation
+                const fileReader = new FileReader()
+                fileReader.onload = () => {
+                    const base64Data = fileReader.result
+
+                    // Navigate to import page with serializable data
+                    navigate('/import', {
+                        state: {
+                            fileData: {
+                                name: selectedFile.name,
+                                size: selectedFile.size,
+                                type: selectedFile.type,
+                                lastModified: selectedFile.lastModified,
+                                base64: base64Data
+                            },
+                            validationInfo: {
+                                totalFiles: validationResult.totalFiles,
+                                mediaFileCount: validationResult.mediaFileCount,
+                                databaseSize: validationResult.databaseSize,
+                                mediaInfo: validationResult.mediaInfo
+                            }
+                        }
+                    })
+                }
+                fileReader.readAsDataURL(selectedFile)
+            } catch (error) {
+                console.error('Error preparing file for navigation:', error)
+                setUploadStatus('Error preparing file. Please try again.')
+                setIsNavigating(false)
+            }
+        }
     }
 
     const handleFileSelect = async (event) => {
@@ -147,10 +188,20 @@ export default function HomePage() {
                         {/* Continue button (only show when file is selected and validated) */}
                         {selectedFile && !isValidating && (
                             <button 
-                                onClick={() => console.log('TODO: Navigate to import page', validationResult)}
-                                className="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                                onClick={handleContinueImport}
+                                disabled={isNavigating}
+                                className={`mt-4 font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg ${
+                                    isNavigating 
+                                        ? 'bg-gray-500 text-white cursor-not-allowed' 
+                                        : 'bg-green-600 hover:bg-green-700 text-white'
+                                }`}
                             >
-                                Continue with import
+                                <div className="flex items-center gap-2 justify-center">
+                                    {isNavigating && (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                    )}
+                                    <span>{isNavigating ? 'Preparing...' : 'Continue with import'}</span>
+                                </div>
                             </button>
                         )}
                     </div>
