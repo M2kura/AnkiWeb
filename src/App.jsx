@@ -3,6 +3,7 @@ import Header from './components/layout/Header'
 import HomePage from './pages/HomePage'
 import DeckEditorPage from './pages/DeckEditorPage'
 import PracticePage from './pages/PracticePage'
+import ConnectionStatus from './components/ConnectionStatus'
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/deck-editor" element={<DeckEditorPage />} />
         <Route path="/practice/:deckId" element={<PracticePage />} />
       </Routes>
+      <ConnectionStatus />
     </Router>
   )
 }
