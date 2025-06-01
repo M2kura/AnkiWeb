@@ -1,9 +1,10 @@
 import JSZip from 'jszip'
+import { initializeSqlJs, loadDatabase, getTableNames } from './sqlScriptLoader'
 
 /**
  * Validates if a file is a proper .apkg (Anki package) file
  * @param {File} file - The file to validate
- * @returns {Promise<{isValid: boolean, error?: string, zipContent?: JSZip}>}
+ * @returns {Promise<{isValid: boolean, error?: string, zipContent?: JSZip, databaseBuffer?: ArrayBuffer}>}
  */
 export async function validateApkgFile(file) {
     try {
@@ -37,9 +38,9 @@ export async function validateApkgFile(file) {
             }
         }
 
-        // Step 3: Validate the database file is not empty
-        const dbFile = zipContent.file('collection.anki2') || 
-                      zipContent.file(foundFiles.find(f => f.endsWith('.anki2')))
+        // Step 3: Extract and validate the database file
+        const dbFileName = foundFiles.find(f => f === 'collection.anki2' || f.endsWith('.anki2'))
+        const dbFile = zipContent.file(dbFileName)
 
         if (!dbFile) {
             return {
@@ -73,10 +74,49 @@ export async function validateApkgFile(file) {
             }
         }
 
+        // Step 5: Try to load with sql.js to ensure it's readable
+        try {
+            await initializeSqlJs() // Ensure sql.js is ready
+            const db = loadDatabase(dbContent)
+
+            if (!db) {
+                return {
+                    isValid: false,
+                    error: 'Database could not be loaded by SQL.js'
+                }
+            }
+
+            // Get table names to verify it's an Anki database
+            const tables = getTableNames(db)
+            console.log('Database tables found:', tables)
+
+            // Check for essential Anki tables
+            const requiredTables = ['cards', 'notes', 'col']
+            const missingTables = requiredTables.filter(table => !tables.includes(table))
+
+            if (missingTables.length > 0) {
+                db.close()
+                return {
+                    isValid: false,
+                    error: `Not a valid Anki database: missing tables ${missingTables.join(', ')}`
+                }
+            }
+
+            db.close() // Clean up test connection
+
+        } catch (sqlError) {
+            console.error('SQL.js validation error:', sqlError)
+            return {
+                isValid: false,
+                error: `Database validation failed: ${sqlError.message}`
+            }
+        }
+
         // All checks passed!
         return {
             isValid: true,
             zipContent: zipContent,
+            databaseBuffer: dbContent,
             fileCount: foundFiles.length,
             databaseSize: dbContent.byteLength
         }
@@ -131,6 +171,36 @@ export async function getApkgInfo(zipContent) {
             mediaFileCount: 0,
             mediaInfo: {},
             allFiles: []
+        }
+    }
+}
+
+/**
+ * Extract and load the Anki database from a validated .apkg file
+ * @param {ArrayBuffer} databaseBuffer - The SQLite database buffer from validation
+ * @returns {Promise<{success: boolean, database?: Object, error?: string}>}
+ */
+export async function loadAnkiDatabase(databaseBuffer) {
+    try {
+        await initializeSqlJs()
+        const db = loadDatabase(databaseBuffer)
+
+        if (!db) {
+            return {
+                success: false,
+                error: 'Failed to load database'
+            }
+        }
+
+        return {
+            success: true,
+            database: db
+        }
+    } catch (error) {
+        console.error('Error loading Anki database:', error)
+        return {
+            success: false,
+            error: error.message
         }
     }
 }

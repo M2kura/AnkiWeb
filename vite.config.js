@@ -13,5 +13,5 @@ export default defineConfig({
 		outDir: 'dist',
 		// Generate source maps for easier debugging
 		sourcemap: true
-	}
+    }
 })
