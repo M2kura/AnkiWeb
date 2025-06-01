@@ -83,10 +83,18 @@ function detectMediaReferences(content) {
 function processAnkiTemplate(template, fields, fieldNames, frontContent = '') {
     if (!template) return { content: '', mediaFound: [] }
 
+    // DEBUG: Log the inputs
+    console.log('=== TEMPLATE DEBUG ===')
+    console.log('Template:', template)
+    console.log('Fields:', fields)
+    console.log('Field names:', fieldNames)
+    console.log('Front content:', frontContent)
+    console.log('Has FrontSide:', /\{\{FrontSide\}\}/gi.test(template))
+
     let processed = template
     let allMediaFound = []
 
-    // Step 1: Replace field placeholders and collect media from fields
+    // Step 1: Replace field placeholders first
     fieldNames.forEach((fieldName, index) => {
         const fieldValue = fields[index] || ''
 
@@ -97,12 +105,27 @@ function processAnkiTemplate(template, fields, fieldNames, frontContent = '') {
         const placeholder = `{{${fieldName}}}`
         const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         const regex = new RegExp(escapedPlaceholder, 'gi')
+        
+        const beforeReplace = processed
         processed = processed.replace(regex, fieldValue)
+        
+        // DEBUG: Log each replacement
+        if (beforeReplace !== processed) {
+            console.log(`Replaced ${placeholder} with "${fieldValue}"`)
+            console.log('Template now:', processed)
+        }
     })
 
     // Step 2: Replace {{FrontSide}} with actual front content
     if (frontContent) {
+        const beforeFrontSide = processed
         processed = processed.replace(/\{\{FrontSide\}\}/gi, frontContent)
+        
+        // DEBUG: Log FrontSide replacement
+        if (beforeFrontSide !== processed) {
+            console.log(`Replaced {{FrontSide}} with "${frontContent}"`)
+            console.log('Final template:', processed)
+        }
     }
 
     // Step 3: Check for media in the processed template
@@ -116,6 +139,10 @@ function processAnkiTemplate(template, fields, fieldNames, frontContent = '') {
 
     // Step 5: Clean up remaining unmatched placeholders
     processed = processed.replace(/\{\{[^}]+\}\}/g, '<span style="color: red; font-size: 0.8em;">[Missing Field]</span>')
+
+    console.log('=== FINAL RESULT ===')
+    console.log('Processed content:', processed)
+    console.log('========================')
 
     return {
         content: processed,

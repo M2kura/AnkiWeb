@@ -1,16 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { validateApkgFile, loadAnkiDatabase } from '../utils/apkgValidator'
-import { parseFullDeck, getCardPreviews } from '../utils/ankiParser'
 
 export default function DeckImportPage() {
     const location = useLocation()
     const navigate = useNavigate()
-    const [loading, setLoading] = useState(true)
-    const [parseError, setParseError] = useState(null)
-    const [mediaDetails, setMediaDetails] = useState(null)
     const [deckData, setDeckData] = useState(null)
-    const [allCards, setAllCards] = useState([])
     const [deckName, setDeckName] = useState('')
     const [cardsPerPage, setCardsPerPage] = useState(10)
     const [currentPage, setCurrentPage] = useState(1)
@@ -18,144 +12,103 @@ export default function DeckImportPage() {
     const [modifiedCards, setModifiedCards] = useState({})
 
     useEffect(() => {
-        loadAndParseDeck()
+        loadDeckData()
     }, [location.state, navigate])
 
-    const loadAndParseDeck = async () => {
-        // Get the file data passed from HomePage
-        const { fileData, validationInfo } = location.state || {}
+    const loadDeckData = () => {
+        // Get the deck data passed from HomePage
+        const { deckData, deckInfo } = location.state || {}
 
-        if (!fileData || !validationInfo) {
+        if (!deckData || !deckInfo) {
             navigate('/')
             return
         }
 
-        try {
-            setLoading(true)
-            setParseError(null)
-            setMediaDetails(null)
-
-            // Convert base64 back to File object
-            const base64Data = fileData.base64
-            const base64String = base64Data.split(',')[1]
-            const byteCharacters = atob(base64String)
-            const byteNumbers = new Array(byteCharacters.length)
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i)
-            }
-            const byteArray = new Uint8Array(byteNumbers)
-            const file = new File([byteArray], fileData.name, { 
-                type: fileData.type,
-                lastModified: fileData.lastModified 
-            })
-
-            // Validate and extract database
-            const validation = await validateApkgFile(file)
-            if (!validation.isValid) {
-                throw new Error(`Validation failed: ${validation.error}`)
-            }
-
-            // Load database
-            const dbResult = await loadAnkiDatabase(validation.databaseBuffer)
-            if (!dbResult.success) {
-                throw new Error(`Database loading failed: ${dbResult.error}`)
-            }
-
-            // Parse the database (now includes media validation)
-            const parsedData = parseFullDeck(dbResult.database)
-            if (!parsedData.success) {
-                // Handle media validation errors specifically
-                if (parsedData.mediaDetails) {
-                    setMediaDetails(parsedData.mediaDetails)
-                }
-                throw new Error(parsedData.error)
-            }
-
-            // Generate ALL card previews (not just 10)
-            const allCardPreviews = getCardPreviews(
-                parsedData.notes, 
-                parsedData.cards, 
-                parsedData.noteTypes, 
-                parsedData.statistics.totalCards
-            )
-
-            // Set the data
-            setDeckData(parsedData)
-            setAllCards(allCardPreviews)
-
-            // Get deck name (use default deck name or filename)
-            const defaultDeck = parsedData.deckInfo.defaultDeck
-            const name = defaultDeck?.name || file.name.replace('.apkg', '')
-            setDeckName(name)
-
-            // Clean up database connection
-            dbResult.database.close()
-
-        } catch (error) {
-            console.error('Error loading and parsing deck:', error)
-            setParseError(error.message)
-        } finally {
-            setLoading(false)
-        }
+        setDeckData(deckData)
+        setDeckName(deckData.name)
     }
 
     const handleGoBack = () => {
         navigate('/')
     }
 
-	const handleImport = () => {
-		try {
-			// Generate a unique deck ID
-			const deckId = `deck_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-			
-			// Prepare deck data for storage
-			const deckDataToStore = {
-				id: deckId,
-				name: deckName,
-				cards: allCards.map(card => ({
-					id: card.cardId,
-					front: card.front,
-					back: card.back,
-					status: card.status,
-					tags: card.tags || [],
-					// Include any modifications made
-					modified: modifiedCards[card.cardId] || false
-				})),
-				importedAt: new Date().toISOString(),
-				totalCards: allCards.length,
-				modifiedCards: Object.keys(modifiedCards).length
-			}
-			
-			// Store deck data in localStorage
-			localStorage.setItem(`ankiweb_deck_${deckId}`, JSON.stringify(deckDataToStore))
-			
-			// Also update the decks list
-			const existingDecks = JSON.parse(localStorage.getItem('ankiweb_decks') || '[]')
-			const deckSummary = {
-				id: deckId,
-				name: deckName,
-				cardCount: allCards.length,
-				importedAt: deckDataToStore.importedAt
-			}
-			existingDecks.push(deckSummary)
-			localStorage.setItem('ankiweb_decks', JSON.stringify(existingDecks))
-			
-			console.log('Deck stored successfully:', deckId)
-			
-			// Navigate to practice page
-			navigate(`/practice/${deckId}`)
-			
-		} catch (error) {
-			console.error('Error importing deck:', error)
-			alert('Error importing deck. Please try again.')
-		}
-	}
+    const handleImport = () => {
+        try {
+            // Generate a unique deck ID
+            const deckId = `deck_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            
+            // Apply any modifications to the cards
+            const finalCards = deckData.cards.map(card => {
+                const modifiedCard = modifiedCards[card.id]
+                if (modifiedCard) {
+                    return {
+                        ...card,
+                        front: modifiedCard.front,
+                        back: modifiedCard.back,
+                        modified: true
+                    }
+                }
+                return card
+            })
+            
+            // Prepare deck data for storage
+            const deckDataToStore = {
+                id: deckId,
+                name: deckName,
+                description: deckData.description || '',
+                cards: finalCards,
+                importedAt: new Date().toISOString(),
+                totalCards: finalCards.length,
+                modifiedCards: Object.keys(modifiedCards).length
+            }
+            
+            // Store deck data in localStorage
+            localStorage.setItem(`ankiweb_deck_${deckId}`, JSON.stringify(deckDataToStore))
+            
+            // Also update the decks list
+            const existingDecks = JSON.parse(localStorage.getItem('ankiweb_decks') || '[]')
+            const deckSummary = {
+                id: deckId,
+                name: deckName,
+                cardCount: finalCards.length,
+                importedAt: deckDataToStore.importedAt
+            }
+            existingDecks.push(deckSummary)
+            localStorage.setItem('ankiweb_decks', JSON.stringify(existingDecks))
+            
+            console.log('Deck stored successfully:', deckId)
+            
+            // Navigate to practice page
+            navigate(`/practice/${deckId}`)
+            
+        } catch (error) {
+            console.error('Error importing deck:', error)
+            alert('Error importing deck. Please try again.')
+        }
+    }
+
+    if (!deckData) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-gray-600 mb-4">No deck data found</p>
+                    <button
+                        onClick={handleGoBack}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg"
+                    >
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     // Calculate pagination
-    const totalPages = cardsPerPage === 'all' ? 1 : Math.ceil(allCards.length / Number(cardsPerPage))
+    const totalCards = deckData.cards.length
+    const totalPages = cardsPerPage === 'all' ? 1 : Math.ceil(totalCards / Number(cardsPerPage))
     const startIndex = cardsPerPage === 'all' ? 0 : (currentPage - 1) * Number(cardsPerPage)
-    const endIndex = cardsPerPage === 'all' ? allCards.length : startIndex + Number(cardsPerPage)
-    const displayedCards = allCards.slice(startIndex, endIndex)
+    const endIndex = cardsPerPage === 'all' ? totalCards : startIndex + Number(cardsPerPage)
+    const displayedCards = deckData.cards.slice(startIndex, endIndex)
 
     const handleCardsPerPageChange = (value) => {
         setCardsPerPage(value)
@@ -167,56 +120,13 @@ export default function DeckImportPage() {
         document.querySelector('.cards-section')?.scrollIntoView({ behavior: 'smooth' })
     }
 
-    // Helper function to convert HTML to clean text for editing
-    const htmlToEditableText = (html) => {
-        if (!html) return ''
-
-        const tempDiv = document.createElement('div')
-        tempDiv.innerHTML = html
-
-        let text = html
-
-        text = text.replace(/<br\s*\/?>/gi, '\n')
-        text = text.replace(/<\/p>/gi, '\n')
-        text = text.replace(/<p[^>]*>/gi, '')
-        text = text.replace(/<\/div>/gi, '\n')
-        text = text.replace(/<div[^>]*>/gi, '')
-        text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
-        text = text.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
-        text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
-        text = text.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
-        text = text.replace(/<img[^>]+src="([^"]+)"[^>]*>/gi, '[Image: $1]')
-        text = text.replace(/\[sound:([^\]]+)\]/gi, '[Audio: $1]')
-        text = text.replace(/<[^>]*>/g, '')
-        text = text.replace(/\n\s*\n/g, '\n')
-        text = text.replace(/^\s+|\s+$/g, '')
-
-        tempDiv.innerHTML = text
-        text = tempDiv.textContent || tempDiv.innerText || text
-
-        return text
-    }
-
-    const editableTextToHtml = (text) => {
-        if (!text) return ''
-
-        let html = text
-        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
-        html = html.replace(/\n/g, '<br>')
-        html = html.replace(/\[Image: ([^\]]+)\]/gi, '<img src="$1">')
-        html = html.replace(/\[Audio: ([^\]]+)\]/gi, '[sound:$1]')
-
-        return html
-    }
-
     const startEditing = (cardId) => {
-        const card = allCards.find(c => c.cardId === cardId)
+        const card = deckData.cards.find(c => c.id === cardId)
         setEditingCards(prev => ({
             ...prev,
             [cardId]: {
-                front: htmlToEditableText(card.front),
-                back: htmlToEditableText(card.back)
+                front: card.front,
+                back: card.back
             }
         }))
     }
@@ -233,18 +143,12 @@ export default function DeckImportPage() {
         const editData = editingCards[cardId]
         if (!editData) return
 
-        const frontHtml = editableTextToHtml(editData.front)
-        const backHtml = editableTextToHtml(editData.back)
-
-        setAllCards(prev => prev.map(card => 
-            card.cardId === cardId 
-                ? { ...card, front: frontHtml, back: backHtml }
-                : card
-        ))
-
         setModifiedCards(prev => ({
             ...prev,
-            [cardId]: true
+            [cardId]: {
+                front: editData.front.trim(),
+                back: editData.back.trim()
+            }
         }))
 
         cancelEditing(cardId)
@@ -260,84 +164,40 @@ export default function DeckImportPage() {
         }))
     }
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading and validating deck content...</p>
-                </div>
-            </div>
-        )
-    }
-
-    if (parseError) {
-        return (
-            <div className="min-h-screen bg-gray-50">
-                <div className="container mx-auto px-4 py-8 max-w-4xl">
-                    <div className="bg-red-100 border border-red-200 rounded-lg p-6">
-                        <h1 className="text-2xl font-bold text-red-900 mb-4">
-                            🚫 Import Rejected - Media Content Detected
-                        </h1>
-                        <p className="text-red-800 mb-6 text-lg">{parseError}</p>
-
-                        {/* Show detailed media information if available */}
-                        {mediaDetails && mediaDetails.length > 0 && (
-                            <div className="bg-red-50 border border-red-300 rounded-lg p-4 mb-6">
-                                <h3 className="font-semibold text-red-900 mb-3">Media Found In:</h3>
-                                <div className="space-y-3 max-h-64 overflow-y-auto">
-                                    {mediaDetails.map((issue, index) => (
-                                        <div key={index} className="border-l-4 border-red-400 pl-3">
-                                            <p className="font-medium text-red-800">{issue.location}</p>
-                                            <div className="mt-1 space-y-1">
-                                                {issue.media.map((media, mediaIndex) => (
-                                                    <div key={mediaIndex} className="text-sm text-red-700 bg-red-100 rounded px-2 py-1">
-                                                        <span className="font-medium">{media.type}:</span> {media.reference}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                            <h3 className="font-semibold text-yellow-800 mb-2">💡 How to Fix This</h3>
-                            <ul className="text-yellow-700 space-y-1 text-sm">
-                                <li>• Remove all images from your cards</li>
-                                <li>• Delete any audio files (including [sound:...] references)</li>
-                                <li>• Remove embedded videos or multimedia content</li>
-                                <li>• Export a new .apkg file containing only text content</li>
-                            </ul>
-                        </div>
-
-                        <button
-                            onClick={handleGoBack}
-                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg"
-                        >
-                            ← Try Another Deck
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )
+    // Get the final version of a card (modified or original)
+    const getFinalCard = (card) => {
+        const modified = modifiedCards[card.id]
+        if (modified) {
+            return { ...card, ...modified }
+        }
+        return card
     }
 
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="container mx-auto px-4 py-6 max-w-6xl">
-                {/* Header with success indicator */}
+                {/* Header */}
                 <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <div className="flex items-center gap-2 mb-2">
-                                <h1 className="text-3xl font-bold text-gray-900">{deckName}</h1>
-                                <span className="bg-green-100 text-green-700 text-sm px-3 py-1 rounded-full font-medium">
-                                    ✓ Text-Only
+                                <input
+                                    type="text"
+                                    value={deckName}
+                                    onChange={(e) => setDeckName(e.target.value)}
+                                    className="text-3xl font-bold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1"
+                                    placeholder="Deck name..."
+                                />
+                                <span className="bg-blue-100 text-blue-700 text-sm px-3 py-1 rounded-full font-medium">
+                                    ✓ JSON Format
                                 </span>
                             </div>
-                            <p className="text-gray-600">{allCards.length} text-only cards ready for import</p>
+                            <p className="text-gray-600">
+                                {totalCards} cards ready for import
+                                {deckData.description && (
+                                    <span className="block text-sm mt-1">{deckData.description}</span>
+                                )}
+                            </p>
                         </div>
                         <div className="flex gap-3">
                             <button
@@ -380,9 +240,9 @@ export default function DeckImportPage() {
                         <div className="mt-2 flex items-center justify-between">
                             <div className="text-sm text-gray-600">
                                 {cardsPerPage === 'all' ? (
-                                    `Showing all ${allCards.length} cards`
+                                    `Showing all ${totalCards} cards`
                                 ) : (
-                                    `Showing ${startIndex + 1}-${Math.min(endIndex, allCards.length)} of ${allCards.length} cards`
+                                    `Showing ${startIndex + 1}-${Math.min(endIndex, totalCards)} of ${totalCards} cards`
                                 )}
                             </div>
                             {Object.keys(modifiedCards).length > 0 && (
@@ -395,12 +255,13 @@ export default function DeckImportPage() {
 
                     <div className="divide-y divide-gray-200">
                         {displayedCards.map((card, index) => {
-                            const isEditing = !!editingCards[card.cardId]
-                            const editData = editingCards[card.cardId]
-                            const isModified = modifiedCards[card.cardId]
+                            const isEditing = !!editingCards[card.id]
+                            const editData = editingCards[card.id]
+                            const isModified = !!modifiedCards[card.id]
+                            const finalCard = getFinalCard(card)
 
                             return (
-                                <div key={card.cardId} className={`p-6 ${isModified ? 'bg-green-50' : ''}`}>
+                                <div key={card.id} className={`p-6 ${isModified ? 'bg-green-50' : ''}`}>
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm text-gray-500">
@@ -413,25 +274,16 @@ export default function DeckImportPage() {
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className={`text-xs px-2 py-1 rounded-full ${
-                                                card.status === 'New' ? 'bg-blue-100 text-blue-700' :
-                                                card.status === 'Learning' ? 'bg-yellow-100 text-yellow-700' :
-                                                card.status === 'Review' ? 'bg-green-100 text-green-700' :
-                                                'bg-gray-100 text-gray-700'
-                                            }`}>
-                                                {card.status}
-                                            </span>
-
                                             {isEditing ? (
                                                 <div className="flex gap-1">
                                                     <button
-                                                        onClick={() => saveCardChanges(card.cardId)}
+                                                        onClick={() => saveCardChanges(card.id)}
                                                         className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
                                                     >
                                                         Save
                                                     </button>
                                                     <button
-                                                        onClick={() => cancelEditing(card.cardId)}
+                                                        onClick={() => cancelEditing(card.id)}
                                                         className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
                                                     >
                                                         Cancel
@@ -439,7 +291,7 @@ export default function DeckImportPage() {
                                                 </div>
                                             ) : (
                                                 <button
-                                                    onClick={() => startEditing(card.cardId)}
+                                                    onClick={() => startEditing(card.id)}
                                                     className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
                                                 >
                                                     Edit
@@ -454,23 +306,19 @@ export default function DeckImportPage() {
                                                 Front
                                             </label>
                                             {isEditing ? (
-                                                <div>
-                                                    <textarea
-                                                        value={editData.front}
-                                                        onChange={(e) => updateCardField(card.cardId, 'front', e.target.value)}
-                                                        className="w-full min-h-[80px] p-3 border rounded-lg text-sm resize-y"
-                                                        placeholder="Front side content..."
-                                                    />
-                                                    <div className="text-xs text-gray-500 mt-1">
-                                                        Tip: Use **bold** and *italic* for formatting
-                                                    </div>
-                                                </div>
+                                                <textarea
+                                                    value={editData.front}
+                                                    onChange={(e) => updateCardField(card.id, 'front', e.target.value)}
+                                                    className="w-full min-h-[80px] p-3 border rounded-lg text-sm resize-y"
+                                                    placeholder="Front side content..."
+                                                />
                                             ) : (
                                                 <div 
-                                                    className="min-h-[80px] p-3 bg-gray-50 border rounded-lg text-sm cursor-pointer hover:bg-gray-100"
-                                                    dangerouslySetInnerHTML={{ __html: card.front }}
-                                                    onClick={() => startEditing(card.cardId)}
-                                                />
+                                                    className="min-h-[80px] p-3 bg-gray-50 border rounded-lg text-sm cursor-pointer hover:bg-gray-100 whitespace-pre-wrap"
+                                                    onClick={() => startEditing(card.id)}
+                                                >
+                                                    {finalCard.front}
+                                                </div>
                                             )}
                                         </div>
 
@@ -479,40 +327,22 @@ export default function DeckImportPage() {
                                                 Back
                                             </label>
                                             {isEditing ? (
-                                                <div>
-                                                    <textarea
-                                                        value={editData.back}
-                                                        onChange={(e) => updateCardField(card.cardId, 'back', e.target.value)}
-                                                        className="w-full min-h-[80px] p-3 border rounded-lg text-sm resize-y"
-                                                        placeholder="Back side content..."
-                                                    />
-                                                    <div className="text-xs text-gray-500 mt-1">
-                                                        Tip: Use **bold** and *italic* for formatting
-                                                    </div>
-                                                </div>
+                                                <textarea
+                                                    value={editData.back}
+                                                    onChange={(e) => updateCardField(card.id, 'back', e.target.value)}
+                                                    className="w-full min-h-[80px] p-3 border rounded-lg text-sm resize-y"
+                                                    placeholder="Back side content..."
+                                                />
                                             ) : (
                                                 <div 
-                                                    className="min-h-[80px] p-3 bg-gray-50 border rounded-lg text-sm cursor-pointer hover:bg-gray-100"
-                                                    dangerouslySetInnerHTML={{ __html: card.back }}
-                                                    onClick={() => startEditing(card.cardId)}
-                                                />
+                                                    className="min-h-[80px] p-3 bg-gray-50 border rounded-lg text-sm cursor-pointer hover:bg-gray-100 whitespace-pre-wrap"
+                                                    onClick={() => startEditing(card.id)}
+                                                >
+                                                    {finalCard.back}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
-
-                                    {card.tags && card.tags.length > 0 && (
-                                        <div className="mt-3">
-                                            <span className="text-xs text-gray-500">Tags: </span>
-                                            {card.tags.map((tag, tagIndex) => (
-                                                <span 
-                                                    key={tagIndex}
-                                                    className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded mr-1"
-                                                >
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
                             )
                         })}
@@ -585,7 +415,7 @@ export default function DeckImportPage() {
                         onClick={handleImport}
                         className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg text-lg"
                     >
-                        Import All {allCards.length} Cards
+                        Import All {totalCards} Cards
                         {Object.keys(modifiedCards).length > 0 && 
                             ` (${Object.keys(modifiedCards).length} modified)`
                         }

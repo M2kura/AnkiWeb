@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { validateApkgFile, getApkgInfo } from '../utils/apkgValidator'
+import { validateJsonDeck, getJsonDeckInfo } from '../utils/jsonDeckValidator'
 
 export default function HomePage() {
     const navigate = useNavigate()
@@ -12,7 +12,6 @@ export default function HomePage() {
     const [isNavigating, setIsNavigating] = useState(false)
 
     const handleImportClick = () => {
-        // Trigger the hidden file input
         fileInputRef.current?.click()
     }
 
@@ -26,7 +25,7 @@ export default function HomePage() {
                 fileReader.onload = () => {
                     const base64Data = fileReader.result
 
-                    // Navigate to import page with serializable data
+                    // Navigate to import page with deck data
                     navigate('/import', {
                         state: {
                             fileData: {
@@ -36,12 +35,8 @@ export default function HomePage() {
                                 lastModified: selectedFile.lastModified,
                                 base64: base64Data
                             },
-                            validationInfo: {
-                                totalFiles: validationResult.totalFiles,
-                                mediaFileCount: validationResult.mediaFileCount,
-                                databaseSize: validationResult.databaseSize,
-                                mediaInfo: validationResult.mediaInfo
-                            }
+                            deckData: validationResult.deckData,
+                            deckInfo: validationResult.deckInfo
                         }
                     })
                 }
@@ -65,17 +60,8 @@ export default function HomePage() {
         }
 
         // Basic validation: check file extension
-        if (!file.name.toLowerCase().endsWith('.apkg')) {
-            setUploadStatus('Please select a valid .apkg file')
-            setSelectedFile(null)
-            setValidationResult(null)
-            return
-        }
-
-        // Basic validation: check file size (max 50MB)
-        const maxSize = 50 * 1024 * 1024 // 50MB
-        if (file.size > maxSize) {
-            setUploadStatus('File too large. Maximum size is 50MB')
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            setUploadStatus('Please select a valid .json file')
             setSelectedFile(null)
             setValidationResult(null)
             return
@@ -83,24 +69,27 @@ export default function HomePage() {
 
         // Show loading state
         setIsValidating(true)
-        setUploadStatus('Validating file format and checking for media content...')
+        setUploadStatus('Validating deck format...')
         setSelectedFile(null)
         setValidationResult(null)
 
         try {
-            // Validate the .apkg file format
-            const validation = await validateApkgFile(file)
+            // Validate the JSON deck file
+            const validation = await validateJsonDeck(file)
 
             if (validation.isValid) {
-                // Get additional file info
-                const fileInfo = await getApkgInfo(validation.zipContent)
+                // Get additional deck info
+                const deckInfo = getJsonDeckInfo(validation.deckData)
 
                 setSelectedFile(file)
-                setValidationResult({ ...validation, ...fileInfo })
+                setValidationResult({ 
+                    deckData: validation.deckData,
+                    deckInfo: deckInfo
+                })
                 setUploadStatus(
-                    `✓ Valid text-only Anki deck: ${file.name} ` +
-                    `(${(file.size / 1024 / 1024).toFixed(2)} MB, ` +
-                    `${fileInfo.totalFiles} files, text content only)`
+                    `✓ Valid flashcard deck: "${deckInfo.deckName}" ` +
+                    `(${deckInfo.totalCards} cards, ` +
+                    `${(file.size / 1024).toFixed(1)} KB)`
                 )
             } else {
                 setUploadStatus(validation.error)
@@ -141,17 +130,15 @@ export default function HomePage() {
 
                         {/* Description */}
                         <p className="text-lg text-gray-600 mb-4 leading-relaxed">
-                            AnkiWeb helps you learn efficiently using spaced repetition. 
-                            Create or import custom flashcards and retain 
-                            information better than ever before.
+                            Create and study with custom flashcards using spaced repetition. 
+                            Import your own JSON deck files or create new ones to start learning efficiently.
                         </p>
 
-                        {/* Important notice about media restrictions */}
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                            <h3 className="text-sm font-semibold text-yellow-800 mb-2">📝 Text-Only Decks Supported</h3>
-                            <p className="text-sm text-yellow-700">
-                                This app only supports text-only flashcards in old-anki format. Decks containing images, 
-                                audio files, or other media will be rejected during import.
+                        {/* Format info */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                            <h3 className="text-sm font-semibold text-blue-800 mb-2">📄 JSON Deck Format</h3>
+                            <p className="text-sm text-blue-700">
+                                Use simple JSON files with front/back flashcards. Easy to create and edit in any text editor.
                             </p>
                         </div>
 
@@ -163,9 +150,9 @@ export default function HomePage() {
 
                             <button 
                                 onClick={handleImportClick}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
                             >
-                                Import text deck
+                                Import JSON deck
                             </button>
                         </div>
 
@@ -173,7 +160,7 @@ export default function HomePage() {
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept=".apkg"
+                            accept=".json"
                             onChange={handleFileSelect}
                             className="hidden"
                         />
@@ -194,7 +181,7 @@ export default function HomePage() {
                             </div>
                         )}
 
-                        {/* Continue button (only show when file is selected and validated) */}
+                        {/* Continue button */}
                         {selectedFile && !isValidating && (
                             <button 
                                 onClick={handleContinueImport}
