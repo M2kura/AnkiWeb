@@ -15,6 +15,9 @@ export default function App() {
         <Route path="/practice/:deckId" element={<PracticePage />} />
       </Routes>
       <ConnectionStatus />
+      <footer className="bg-gray-100 text-gray-500 text-center py-4 mt-8">
+        <span>&copy; 2024 AnkiWeb. All rights reserved.</span>
+      </footer>
     </Router>
   )
 }

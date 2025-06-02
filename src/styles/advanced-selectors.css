@@ -1,0 +1,27 @@
+/* Advanced CSS Selectors Demo */
+
+/* Highlight every odd card in the deck editor */
+.cards-section > div.divide-y > div:nth-child(odd) {
+  background-color: #f0f9ff;
+}
+
+/* Highlight the first card with a border */
+.cards-section > div.divide-y > div:first-child {
+  border-left: 4px solid #2563eb;
+}
+
+/* Style Save buttons inside modified cards */
+.cards-section .bg-green-50 button.bg-green-600:hover {
+  background-color: #059669 !important;
+}
+
+/* Use a descendant selector for card labels */
+.cards-section label {
+  color: #1e293b;
+  font-weight: bold;
+}
+
+/* Use a combinator to style empty cards */
+.cards-section > div.divide-y > div.bg-yellow-50 + div.bg-yellow-50 {
+  box-shadow: 0 0 0 2px #fde68a;
+} 

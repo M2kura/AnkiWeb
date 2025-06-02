@@ -107,9 +107,9 @@ export default function HomePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <main className="min-h-screen bg-gray-50">
             {/* Hero Section */}
-            <div className="container mx-auto px-4 py-16">
+            <section className="container mx-auto px-4 py-16">
                 <div className="flex flex-col lg:flex-row items-center justify-center gap-12 max-w-6xl mx-auto">
                     {/* Left side - Large Image */}
                     <div className="flex-1 w-full lg:w-1/2">
@@ -205,7 +205,7 @@ export default function HomePage() {
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
+        </main>
     )
 }

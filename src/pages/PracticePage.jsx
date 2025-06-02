@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { playSound, toggleMute, isSoundMuted } from '../utils/soundEffects'
 
 export default function PracticePage() {
@@ -16,6 +16,8 @@ export default function PracticePage() {
 		incorrect: 0,
 		remaining: 0
 	})
+	const progressBarRef = useRef(null)
+	const [progressColor, setProgressColor] = useState('#2563eb')
 
 	useEffect(() => {
 		loadDeckData()
@@ -143,6 +145,12 @@ export default function PracticePage() {
 		setIsMuted(newMuteState)
 	}
 
+	const handleChangeProgressColor = () => {
+		const colors = ['#2563eb', '#059669', '#f59e42', '#dc2626']
+		const nextColor = colors[(colors.indexOf(progressColor) + 1) % colors.length]
+		setProgressColor(nextColor)
+	}
+
 	if (loading) {
 		return (
 			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -184,6 +192,21 @@ export default function PracticePage() {
 						</p>
 					</div>
 					<div className="flex items-center gap-4">
+						{/* Progress Bar Color Icon */}
+						<button
+							onClick={handleChangeProgressColor}
+							className="p-2 text-gray-600 hover:text-blue-600 rounded-full hover:bg-gray-100 transition-colors"
+							title="Change Progress Bar Color"
+							aria-label="Change Progress Bar Color"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="#fff" />
+								<circle cx="8" cy="10" r="1.5" fill="#2563eb" />
+								<circle cx="16" cy="10" r="1.5" fill="#059669" />
+								<circle cx="9.5" cy="15" r="1.5" fill="#f59e42" />
+								<circle cx="14.5" cy="15" r="1.5" fill="#dc2626" />
+							</svg>
+						</button>
 						{/* Sound Toggle Button */}
 						<button
 							onClick={handleToggleSound}
@@ -201,6 +224,7 @@ export default function PracticePage() {
 								</svg>
 							)}
 						</button>
+						{/* Back to Home Button */}
 						<button
 							onClick={handleBackToDeck}
 							className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
@@ -220,7 +244,7 @@ export default function PracticePage() {
 					
 					{/* SVG Progress Bar */}
 					<div className="w-full">
-						<svg className="w-full h-3" viewBox="0 0 100 3">
+						<svg ref={progressBarRef} className="w-full h-3" viewBox="0 0 100 3">
 							{/* Background track */}
 							<rect 
 								x="0" 
@@ -236,7 +260,7 @@ export default function PracticePage() {
 								y="0" 
 								width={((practiceStats.correct + practiceStats.incorrect) / deckData.cards.length) * 100} 
 								height="3" 
-								fill="#2563eb" 
+								fill={progressColor} 
 								rx="1.5"
 								className="transition-all duration-300 ease-out"
 							/>

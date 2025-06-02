@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { DeckStats } from '../utils/DeckStats'
 
 export default function DeckEditorPage() {
     const location = useLocation()
@@ -363,6 +364,9 @@ export default function DeckEditorPage() {
         return card
     }
 
+    // Get deck stats using OOP class
+    const deckStats = new DeckStats(deckData)
+
     // Get page title and action button text based on mode
     const pageTitle = mode === 'import' ? 'Import Deck' : 'Create New Deck'
     const actionButtonText = mode === 'import' 
@@ -411,6 +415,7 @@ export default function DeckEditorPage() {
                                         ({Object.keys(modifiedCards).length} modified)
                                     </span>
                                 )}
+                                <span className="ml-4">Avg. card length: {deckStats.averageCardLength()} chars</span>
                             </p>
                         </div>
                         
