@@ -1,0 +1,16 @@
+{
+  "name": "AnkiWeb",
+  "short_name": "AnkiWeb",
+  "description": "A web-based flashcard application",
+  "start_url": "/AnkiWeb/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/AnkiWeb/vite.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+} 

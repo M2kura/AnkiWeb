@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/anki.svg" />
+    <link rel="icon" type="image/svg+xml" href="/AnkiWeb/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AnkiWeb</title>
+    <meta name="description" content="A web-based flashcard application" />
+    <link rel="manifest" href="/AnkiWeb/manifest.json" />
 
     <!-- GitHub Pages SPA redirect handling -->
     <script type="text/javascript">
@@ -19,6 +21,20 @@
                 );
             }
         }(window.location))
+    </script>
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/AnkiWeb/sw.js')
+            .then(registration => {
+              console.log('ServiceWorker registration successful')
+            })
+            .catch(err => {
+              console.log('ServiceWorker registration failed: ', err)
+            })
+        })
+      }
     </script>
 </head>
 <body>
