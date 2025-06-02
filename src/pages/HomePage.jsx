@@ -10,6 +10,7 @@ export default function HomePage() {
     const [isValidating, setIsValidating] = useState(false)
     const [validationResult, setValidationResult] = useState(null)
     const [isNavigating, setIsNavigating] = useState(false)
+    const [isDragging, setIsDragging] = useState(false)
 
     const handleImportClick = () => {
         fileInputRef.current?.click()
@@ -51,7 +52,12 @@ export default function HomePage() {
 
     const handleFileSelect = async (event) => {
         const file = event.target.files[0]
+        console.log('File selected via input:', file)
+        await processFile(file)
+    }
 
+    const processFile = async (file) => {
+        console.log('Processing file:', file ? file.name : 'No file')
         if (!file) {
             setSelectedFile(null)
             setUploadStatus('')
@@ -97,7 +103,7 @@ export default function HomePage() {
                 setValidationResult(null)
             }
         } catch (error) {
-            console.error('Validation error:', error)
+            console.error('Error validating file:', error)
             setUploadStatus('Error validating file. Please try again.')
             setSelectedFile(null)
             setValidationResult(null)
@@ -106,106 +112,130 @@ export default function HomePage() {
         }
     }
 
+    const handleDragEnter = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        console.log('Drag Enter')
+        setIsDragging(true)
+    }
+
+    const handleDragLeave = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        console.log('Drag Leave')
+        setIsDragging(false)
+    }
+
+    const handleDragOver = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        // console.log('Drag Over') // Avoid spamming console
+    }
+
+    const handleDrop = async (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        console.log('Drop event triggered')
+        setIsDragging(false)
+
+        const file = e.dataTransfer.files[0]
+        console.log('Dropped file:', file ? file.name : 'No file detected')
+        if (file) {
+            await processFile(file)
+        }
+    }
+
     return (
-        <main className="min-h-screen bg-gray-50">
-            {/* Hero Section */}
-            <section className="container mx-auto px-4 py-16">
-                <div className="flex flex-col lg:flex-row items-center justify-center gap-12 max-w-6xl mx-auto">
-                    {/* Left side - Large Image */}
-                    <div className="flex-1 w-full lg:w-1/2">
-                        <img 
-                            src="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" 
-                            alt="Study with flashcards" 
-                            className="w-full h-96 lg:h-[500px] object-cover rounded-lg shadow-xl"
-                        />
+        <div className="min-h-screen bg-gray-50">
+            <div className="container mx-auto px-4 py-8">
+                <div className="max-w-4xl mx-auto">
+                    <div className="text-center mb-12">
+                        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                            Welcome to AnkiWeb
+                        </h1>
+                        <p className="text-xl text-gray-600">
+                            Create and practice flashcards with ease
+                        </p>
                     </div>
 
-                    {/* Right side - Content Column */}
-                    <div className="flex-1 w-full lg:w-1/2 text-center lg:text-left">
-                        {/* Title */}
-                        <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                            Master Any Subject with 
-                            <span className="text-blue-600 block">Smart Flashcards</span>
-                        </h1>
-
-                        {/* Description */}
-                        <p className="text-lg text-gray-600 mb-4 leading-relaxed">
-                            Create and study with custom flashcards using spaced repetition. 
-                            Import your own JSON deck files or create new ones to start learning efficiently.
-                        </p>
-
-                        {/* Format info */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                            <h3 className="text-sm font-semibold text-blue-800 mb-2">📄 JSON Deck Format</h3>
-                            <p className="text-sm text-blue-700">
-                                Use simple JSON files with front/back flashcards. Easy to create and edit in any text editor.
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Left column - Create new deck */}
+                        <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col h-full min-h-[260px]">
+                            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                                Create New Deck
+                            </h2>
+                            <p className="text-gray-600 mb-6 flex-grow">
+                                Start from scratch and build your own flashcard deck
                             </p>
-                        </div>
-
-                        {/* Buttons */}
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                            <button 
-                                onClick={() => navigate('/deck-editor')}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
-                            >
-                                Create new deck
-                            </button>
-
-                            <button 
-                                onClick={handleImportClick}
-                                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
-                            >
-                                Import JSON deck
-                            </button>
-                        </div>
-
-                        {/* Hidden file input */}
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".json"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                        />
-
-                        {/* Status message */}
-                        {uploadStatus && (
-                            <div className={`mt-4 p-3 rounded-lg flex items-center gap-2 ${
-                                isValidating 
-                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                                    : selectedFile 
-                                        ? 'bg-green-100 text-green-800 border border-green-200' 
-                                        : 'bg-red-100 text-red-800 border border-red-200'
-                            }`}>
-                                {isValidating && (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
-                                )}
-                                <span className="text-sm">{uploadStatus}</span>
+                            <div className="mt-auto">
+                                <button 
+                                    onClick={() => navigate('/deck-editor')}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg h-12"
+                                >
+                                    Create new deck
+                                </button>
                             </div>
-                        )}
+                        </div>
 
-                        {/* Continue button */}
-                        {selectedFile && !isValidating && (
-                            <button 
-                                onClick={handleContinueImport}
-                                disabled={isNavigating}
-                                className={`mt-4 font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg ${
-                                    isNavigating 
-                                        ? 'bg-gray-500 text-white cursor-not-allowed' 
-                                        : 'bg-green-600 hover:bg-green-700 text-white'
-                                }`}
-                            >
-                                <div className="flex items-center gap-2 justify-center">
-                                    {isNavigating && (
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                    )}
-                                    <span>{isNavigating ? 'Preparing...' : 'Continue with import'}</span>
+                        {/* Right column - Import deck */}
+                        <div 
+                            className={`bg-white rounded-lg shadow-sm p-6 flex flex-col h-full min-h-[260px] ${
+                                isDragging ? 'border-2 border-blue-500 bg-blue-50' : ''
+                            }`}
+                            onDragEnter={handleDragEnter}
+                            onDragLeave={handleDragLeave}
+                            onDragOver={handleDragOver}
+                            onDrop={handleDrop}
+                        >
+                            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                                Import Deck
+                            </h2>
+                            <p className="text-gray-600 mb-6 flex-grow">
+                                Import an existing JSON flashcard deck
+                            </p>
+                            <div className="mt-auto flex flex-col gap-2">
+                                <button 
+                                    onClick={handleImportClick}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg h-12"
+                                >
+                                    Choose JSON file
+                                </button>
+                                <div className="text-center text-gray-500 text-sm mt-2">
+                                    or drag and drop your JSON file here
                                 </div>
-                            </button>
-                        )}
+                                {/* Hidden file input */}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".json"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                />
+                                {/* Status message */}
+                                {uploadStatus && (
+                                    <div className={`mt-4 p-3 rounded-lg ${
+                                        uploadStatus.startsWith('✓') 
+                                            ? 'bg-green-50 text-green-700' 
+                                            : 'bg-red-50 text-red-700'
+                                    }`}>
+                                        {uploadStatus}
+                                    </div>
+                                )}
+                                {/* Continue button */}
+                                {selectedFile && validationResult && (
+                                    <button
+                                        onClick={handleContinueImport}
+                                        disabled={isNavigating}
+                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed h-12 mt-2"
+                                    >
+                                        {isNavigating ? 'Importing...' : 'Continue Import'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </section>
-        </main>
+            </div>
+        </div>
     )
 }
