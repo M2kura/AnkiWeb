@@ -215,15 +215,32 @@ export default function PracticePage() {
 					<div className="flex justify-between text-sm text-gray-600 mb-2">
 						<span>Correct: {practiceStats.correct}</span>
 						<span>Incorrect: {practiceStats.incorrect}</span>
-						<span>Remaining: {practiceStats.remaining}</span>
+						<span>Remaining: {deckData.cards.length - practiceStats.correct - practiceStats.incorrect}</span>
 					</div>
-					<div className="w-full bg-gray-200 rounded-full h-2">
-						<div 
-							className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-							style={{ 
-								width: `${((currentCardIndex + 1) / deckData.cards.length) * 100}%` 
-							}}
-						></div>
+					
+					{/* SVG Progress Bar */}
+					<div className="w-full">
+						<svg className="w-full h-3" viewBox="0 0 100 3">
+							{/* Background track */}
+							<rect 
+								x="0" 
+								y="0" 
+								width="100" 
+								height="3" 
+								fill="#e5e7eb" 
+								rx="1.5"
+							/>
+							{/* Progress fill */}
+							<rect 
+								x="0" 
+								y="0" 
+								width={((practiceStats.correct + practiceStats.incorrect) / deckData.cards.length) * 100} 
+								height="3" 
+								fill="#2563eb" 
+								rx="1.5"
+								className="transition-all duration-300 ease-out"
+							/>
+						</svg>
 					</div>
 				</div>
 
