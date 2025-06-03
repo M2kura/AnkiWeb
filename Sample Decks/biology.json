@@ -1,0 +1,63 @@
+{
+    "name": "Basic Biology",
+    "description": "Fundamental biology concepts for students",
+    "created": "2025-01-01T12:00:00Z",
+    "cards": [
+        {
+            "front": "What is photosynthesis?",
+            "back": "The process by which plants use sunlight, carbon dioxide, and water to produce glucose and oxygen"
+        },
+        {
+            "front": "What is the basic unit of life?",
+            "back": "The cell"
+        },
+        {
+            "front": "What is DNA?",
+            "back": "Deoxyribonucleic acid - the molecule that carries genetic information in living organisms"
+        },
+        {
+            "front": "What is mitosis?",
+            "back": "The process of cell division that produces two identical diploid daughter cells from one parent cell"
+        },
+        {
+            "front": "What is the difference between prokaryotic and eukaryotic cells?",
+            "back": "Prokaryotic cells lack a membrane-bound nucleus (bacteria), while eukaryotic cells have a membrane-bound nucleus (plants, animals, fungi)"
+        },
+        {
+            "front": "What is an ecosystem?",
+            "back": "A community of living organisms interacting with each other and their physical environment"
+        },
+        {
+            "front": "What is evolution?",
+            "back": "The process by which species change over time through natural selection and genetic variation"
+        },
+        {
+            "front": "What is the function of ribosomes?",
+            "back": "To synthesize proteins by translating messenger RNA (mRNA)"
+        },
+        {
+            "front": "What is homeostasis?",
+            "back": "The ability of an organism to maintain stable internal conditions despite changes in the external environment"
+        },
+        {
+            "front": "What is the difference between genotype and phenotype?",
+            "back": "Genotype is an organism's genetic makeup, while phenotype is the observable characteristics resulting from genotype and environment"
+        },
+        {
+            "front": "What is cellular respiration?",
+            "back": "The process by which cells break down glucose to produce ATP (energy) using oxygen"
+        },
+        {
+            "front": "What is biodiversity?",
+            "back": "The variety of life on Earth, including genetic, species, and ecosystem diversity"
+        },
+        {
+            "front": "What is the role of chloroplasts?",
+            "back": "To conduct photosynthesis in plant cells, converting light energy into chemical energy"
+        },
+        {
+            "front": "What is natural selection?",
+            "back": "The process where organisms with favorable traits are more likely to survive and reproduce, passing those traits to offspring"
+        }
+    ]
+}

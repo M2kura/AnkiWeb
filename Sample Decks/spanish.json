@@ -1,0 +1,47 @@
+{
+  "name": "Spanish Basics",
+  "description": "Essential Spanish vocabulary for beginners",
+  "created": "2025-01-01T12:00:00Z",
+  "cards": [
+    {
+      "front": "Hello",
+      "back": "Hola"
+    },
+    {
+      "front": "Goodbye",
+      "back": "Adiós"
+    },
+    {
+      "front": "Please",
+      "back": "Por favor"
+    },
+    {
+      "front": "Thank you",
+      "back": "Gracias"
+    },
+    {
+      "front": "You're welcome",
+      "back": "De nada"
+    },
+    {
+      "front": "Excuse me",
+      "back": "Disculpe"
+    },
+    {
+      "front": "Yes",
+      "back": "Sí"
+    },
+    {
+      "front": "No",
+      "back": "No"
+    },
+    {
+      "front": "Where is the bathroom?",
+      "back": "¿Dónde está el baño?"
+    },
+    {
+      "front": "How much does it cost?",
+      "back": "¿Cuánto cuesta?"
+    }
+  ]
+}

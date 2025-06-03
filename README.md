@@ -58,12 +58,10 @@ AnkiWeb is a modern web-based flashcard application that allows users to create,
 ---
 
 ## How to Run
+If you want to try the app live from the web, you can go [here](https://m2kura.github.io/AnkiWeb/) and use example decks from Sample Decks folder or create your own.  
+
+For local build:
+
 1. Install dependencies: `npm install`
 2. Start dev server: `npm run dev`
 3. Open in browser: [http://localhost:5173/AnkiWeb/](http://localhost:5173/AnkiWeb/)
-
----
-
-## Notes
-- All requirements from the grading table are implemented and mapped above.
-- For any questions, see code comments or ask the author. 

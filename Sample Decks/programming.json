@@ -1,0 +1,55 @@
+{
+    "name": "Programming Fundamentals",
+    "description": "Essential programming concepts and terminology for beginners",
+    "created": "2025-01-01T12:00:00Z",
+    "cards": [
+        {
+            "front": "What is a variable?",
+            "back": "A named storage location that holds data which can be modified during program execution"
+        },
+        {
+            "front": "What does 'debugging' mean?",
+            "back": "The process of finding and fixing errors or bugs in code"
+        },
+        {
+            "front": "What is a function?",
+            "back": "A reusable block of code that performs a specific task and can accept inputs (parameters) and return outputs"
+        },
+        {
+            "front": "What is an algorithm?",
+            "back": "A step-by-step procedure for solving a problem or completing a task"
+        },
+        {
+            "front": "What does 'syntax' refer to in programming?",
+            "back": "The set of rules that defines valid constructs in a programming language"
+        },
+        {
+            "front": "What is a loop?",
+            "back": "A programming construct that repeats a block of code multiple times until a condition is met"
+        },
+        {
+            "front": "What is the difference between '==' and '=' in most programming languages?",
+            "back": "'=' assigns a value to a variable, while '==' compares two values for equality"
+        },
+        {
+            "front": "What is an array?",
+            "back": "A data structure that stores multiple values of the same type in a sequential collection"
+        },
+        {
+            "front": "What does 'compile' mean?",
+            "back": "The process of translating source code written in a high-level language into machine code or bytecode"
+        },
+        {
+            "front": "What is version control?",
+            "back": "A system that tracks changes to files over time, allowing you to recall specific versions and collaborate with others"
+        },
+        {
+            "front": "What is an IDE?",
+            "back": "Integrated Development Environment - a software application that provides comprehensive tools for software development"
+        },
+        {
+            "front": "What does 'refactoring' mean?",
+            "back": "The process of restructuring existing code without changing its external behavior to improve readability and maintainability"
+        }
+    ]
+}

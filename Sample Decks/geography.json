@@ -1,0 +1,67 @@
+{
+    "name": "World Geography",
+    "description": "Countries, capitals, and geographic features around the world",
+    "created": "2025-01-01T12:00:00Z",
+    "cards": [
+        {
+            "front": "What is the capital of France?",
+            "back": "Paris"
+        },
+        {
+            "front": "Which is the largest continent by area?",
+            "back": "Asia"
+        },
+        {
+            "front": "What is the longest river in the world?",
+            "back": "The Nile River"
+        },
+        {
+            "front": "Which mountain range contains Mount Everest?",
+            "back": "The Himalayas"
+        },
+        {
+            "front": "What is the smallest country in the world?",
+            "back": "Vatican City"
+        },
+        {
+            "front": "Which ocean is the largest?",
+            "back": "Pacific Ocean"
+        },
+        {
+            "front": "What is the capital of Australia?",
+            "back": "Canberra"
+        },
+        {
+            "front": "Which desert is the largest in the world?",
+            "back": "Antarctica (cold desert) or Sahara (hot desert)"
+        },
+        {
+            "front": "What is the capital of Japan?",
+            "back": "Tokyo"
+        },
+        {
+            "front": "Which country has the most time zones?",
+            "back": "France (12 time zones including overseas territories)"
+        },
+        {
+            "front": "What is the deepest point on Earth?",
+            "back": "Challenger Deep in the Mariana Trench"
+        },
+        {
+            "front": "Which country is both in Europe and Asia?",
+            "back": "Turkey (or Russia)"
+        },
+        {
+            "front": "What is the capital of Brazil?",
+            "back": "Brasília"
+        },
+        {
+            "front": "Which African country was never colonized?",
+            "back": "Ethiopia (and Liberia)"
+        },
+        {
+            "front": "What is the highest waterfall in the world?",
+            "back": "Angel Falls in Venezuela"
+        }
+    ]
+}
